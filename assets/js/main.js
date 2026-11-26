@@ -164,6 +164,7 @@
       $("#workPrev").disabled = track.scrollLeft <= 4;
       $("#workNext").disabled = track.scrollLeft >= max;
       track.classList.toggle("at-end", track.scrollLeft >= max);
+      track.classList.toggle("at-start", track.scrollLeft <= 4);
     };
     track.addEventListener("scroll", upd, { passive: true }); window.addEventListener("resize", upd); upd();
   }
@@ -318,12 +319,13 @@
       return p;
     }
     function torus() {
-      var nu = Math.round(Math.sqrt(N * 1.6)), nv = Math.ceil(N / nu), p = [];
-      for (var i = 0; i < nu; i++) for (var j = 0; j < nv; j++) {
-        var u = (i / nu) * Math.PI * 2, v = (j / nv) * Math.PI * 2 + (i % 2) * Math.PI / nv, Rr = 0.95, rr = 0.4;
+      // one continuous helix wound around the torus: even coverage, no seam
+      var p = [], wind = small ? 17 : 23, Rr = 0.95, rr = 0.4;
+      for (var k = 0; k < N; k++) {
+        var u = (k / N) * Math.PI * 2, v = (k / N) * Math.PI * 2 * wind;
         p.push([(Rr + rr * Math.cos(v)) * Math.cos(u), rr * Math.sin(v), (Rr + rr * Math.cos(v)) * Math.sin(u)]);
       }
-      return fit(p);
+      return p;
     }
     function trefoil() {
       var ring = 5, nt = Math.ceil(N / ring), p = [];
@@ -382,9 +384,14 @@
       layout.narrow = narrow;
       if (narrow) {
         // sit in the space between the nav and the headline block
-        var top = inner ? inner.offsetTop : H * 0.5, avail = top - 72;
-        layout.scale = Math.max(48, Math.min(W * 0.26, avail / 3.1));
-        layout.ox = W * 0.5; layout.oy = 72 + Math.max(avail, 150) / 2;
+        var eb = inner && inner.querySelector(".eyebrow");
+        var top = inner ? inner.offsetTop + (eb ? eb.offsetTop : 0) : H * 0.5, avail = top - 72;
+        if (avail < 90) {
+          // short phones: no room above the text, so show it faintly behind instead
+          layout.scale = W * 0.28; layout.ox = W * 0.62; layout.oy = H * 0.36; cv.style.opacity = "0.32";
+        } else {
+          layout.scale = Math.min(W * 0.26, avail / 3.1); layout.ox = W * 0.5; layout.oy = 72 + avail / 2; cv.style.opacity = "";
+        }
       } else {
         var textRight = inner ? inner.getBoundingClientRect().right : W * 0.45;
         var room = W - textRight - 40;
@@ -471,12 +478,12 @@
       var hz = H * 0.3;
       for (var i = -14; i <= 14; i++) { ctx.beginPath(); ctx.moveTo(W / 2 + i * u * 2.2, hz); ctx.lineTo(W / 2 + i * W * 0.14, H); ctx.stroke(); }
       for (var j = 0; j < 14; j++) { var yy = hz + Math.pow(((j + (t * 0.6) % 1) / 14), 2) * (H - hz); ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); }
-      var path = function (s) { return [W * 0.4 + Math.sin(s * 0.9) * W * 0.24 + Math.sin(s * 2.1) * W * 0.05, H * 0.7 + Math.cos(s * 0.7) * H * 0.12]; };
+      var path = function (s) { return [W * 0.48 + Math.sin(s * 0.9) * W * 0.19 + Math.sin(s * 2.1) * W * 0.04, H * 0.56 + Math.cos(s * 0.7) * H * 0.12]; };
       ctx.lineWidth = Math.max(2, u * 0.45); ctx.lineCap = "round";
       for (var k = 0; k < 40; k++) { var p0 = path(t - k * 0.04), p1 = path(t - (k + 1) * 0.04); ctx.strokeStyle = "rgba(34,195,181," + (0.9 - k / 44) + ")"; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke(); }
       var cur = path(t), dir = path(t + 0.05);
       var ang = Math.atan2(dir[1] - cur[1], dir[0] - cur[0]);
-      var stepLen = Math.min(u * 2.2, H * 0.045);
+      var stepLen = Math.min(u * 2.2, H * 0.045, Math.min(W, H) * 0.015);
       for (var r = 0; r < 7; r++) {
         var a = ang + (r - 3) * 0.26, x = cur[0], y = cur[1];
         ctx.setLineDash([u * 0.7, u]); ctx.lineWidth = Math.max(1.4, u * 0.22);
@@ -551,7 +558,7 @@
     mllm: function (ctx, W, H, t) {
       ctx.fillStyle = "#0b1230"; ctx.fillRect(0, 0, W, H);
       var n = 4, cell = H * 0.1, gx = W * 0.06, gy = H * 0.08;
-      var tok = Math.max(10, H * 0.085), seqX0 = W * 0.06, seqY = H * 0.62;
+      var tok = Math.max(17, H * 0.085), seqX0 = W * 0.06, seqY = H * 0.6;
       var cycle = (t * 0.3) % 1.25;
       var lx = W * 0.66, ly = H * 0.08, lw = W * 0.28, lh = H * 0.36;
       var tokPos = [];
@@ -568,7 +575,7 @@
       ctx.globalAlpha = 1;
       // text tokens after the image tokens
       var words = ["what", "is", "it", "doing", "?"];
-      ctx.font = "600 " + Math.round(tok * 0.62) + "px Inter, sans-serif";
+      ctx.font = "600 " + Math.max(10, Math.round(tok * 0.6)) + "px Inter, sans-serif";
       var wx = seqX0 + 8 * (tok + 3) + 8, wy = seqY;
       for (var w = 0; w < words.length; w++) {
         var ww = ctx.measureText(words[w]).width + 10;
@@ -669,7 +676,7 @@
         ctx.save(); ctx.beginPath(); ctx.rect(0, 0, s.w, bh); ctx.clip();
         fn(ctx, s.w, bh, t, cv.dataset.color);
         ctx.restore();
-      }, { still: 4.5 });
+      }, { still: 4.5, fps: 30 });
     });
   }
 

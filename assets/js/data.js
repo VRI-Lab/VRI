@@ -92,7 +92,7 @@ window.VRI = {
       org: "Macquarie University",
       place: "Australia",
       focus: "World models · Vision-language models",
-      photo: null,
+      photo: "assets/img/people/ali-cheraghian.jpg",
       links: {
         scholar: "https://scholar.google.com/citations?user=QT0EXIkAAAAJ",
         web: "https://alichr.github.io",
@@ -155,7 +155,7 @@ window.VRI = {
       authors: "H. Dastmalchi, A. Cheraghian, A. An, A. Khamis, L. Petersson",
       img: null,
       seed: 2,
-      links: { page: "https://alichr.github.io" }
+      links: { arXiv: "https://arxiv.org/abs/2610.24783" }
     },
     {
       title: "Topology-Aware Optimal Transport for Source-Free Test-Time Adaptation in Anomaly Segmentation",
@@ -172,7 +172,7 @@ window.VRI = {
       authors: "Z. Hayder, A. Cheraghian, L. Petersson, M. Harandi, R. Hartley",
       img: null,
       seed: 7,
-      links: { page: "https://alichr.github.io" }
+      links: { paper: "https://openreview.net/forum?id=QMItTyQW92" }
     },
     {
       title: "Learning Structurally Consistent Representations for Multi-view Radar Semantic Segmentation",
@@ -220,7 +220,7 @@ window.VRI = {
     {
       title: "Topological Deep Learning: A Review of an Emerging Paradigm",
       short: "TDL Review",
-      venue: "Artificial Intelligence Review 2024",
+      venue: "AI Review 2024",
       authors: "A. Zia, A. Khamis, J. Nichols, U. B. Tayab, Z. Hayder, V. Rolland, E. Stone, L. Petersson",
       img: "assets/img/work/tdl-review.webp",
       links: { paper: "https://link.springer.com/article/10.1007/s10462-024-10710-9", arXiv: "https://arxiv.org/abs/2302.03836" }
@@ -262,7 +262,7 @@ window.VRI = {
   news: [
     { tag: "Nov 2026", text: "VRI Lab launches, bringing together researchers from five institutions in Australia, Bangladesh and Canada." },
     { tag: "WACV 2027", text: "ATLAS accepted, with four VRI members as co-authors." },
-    { tag: "NeurIPS 2026", text: "TopoOT accepted: topology-aware optimal transport for test-time anomaly segmentation." },
+    { tag: "NeurIPS 2026", text: "TopoOT accepted: topology-aware optimal transport for source-free test-time adaptation in anomaly segmentation." },
     { tag: "ICLR 2026", text: "DTO-KD selected for an oral presentation." }
   ],
 
