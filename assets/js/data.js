@@ -59,7 +59,7 @@ window.VRI = {
       name: "Lars Petersson",
       initials: "LP",
       role: "Senior Principal Research Scientist",
-      org: "CSIRO Data61",
+      org: "CSIRO",
       place: "Australia",
       focus: "Foundation AI models",
       photo: null,
@@ -118,14 +118,14 @@ window.VRI = {
       id: "hamidreza-dastmalchi",
       name: "Hamidreza Dastmalchi",
       initials: "HD",
-      role: "Researcher",
+      role: "PhD Candidate",
       org: "York University",
       place: "Canada",
       focus: "Language world action models",
       photo: null,
       links: {
-        github: "https://github.com/hamidreza-dastmalchi",
-        web: "https://dblp.org/pid/96/9793.html"
+        scholar: "https://scholar.google.ca/citations?user=ewOyJ3MAAAAJ",
+        github: "https://github.com/hamidreza-dastmalchi"
       }
     },
     {
@@ -133,7 +133,7 @@ window.VRI = {
       name: "Abdelwahed Khamis",
       initials: "AK",
       role: "Research Scientist",
-      org: "CSIRO Data61",
+      org: "CSIRO",
       place: "Australia",
       focus: "Multimodal LLMs · Radar perception",
       photo: null,
@@ -149,18 +149,27 @@ window.VRI = {
      img: a figure from the paper; leave null to draw a generated cover. */
   papers: [
     {
+      title: "ATLAS: Learning to Adapt LVLM Attention for Reasoning Video Segmentation",
+      short: "ATLAS",
+      venue: "WACV 2027",
+      authors: "H. Dastmalchi, A. Cheraghian, A. An, A. Khamis, L. Petersson",
+      img: null,
+      seed: 2,
+      links: { page: "https://alichr.github.io" }
+    },
+    {
       title: "Topology-Aware Optimal Transport for Source-Free Test-Time Adaptation in Anomaly Segmentation",
       short: "TopoOT",
       venue: "NeurIPS 2026",
       authors: "A. Zia, U. Ali, A. Khamis, M. U. Ramzan, A. Rehman, W. Xiang",
       img: "assets/img/work/topoot.webp",
-      links: { arXiv: "https://arxiv.org/abs/2601.20333", code: "https://github.com/alizia369/TopoOT" }
+      links: { arXiv: "https://arxiv.org/abs/2601.20333", code: "https://github.com/alizia369/TopoOT", project: "https://topoot.github.io" }
     },
     {
       title: "DTO-KD: Dynamic Trade-off Optimization for Effective Knowledge Distillation",
       short: "DTO-KD",
       venue: "ICLR 2026 · Oral",
-      authors: "A. Cheraghian et al.",
+      authors: "Z. Hayder, A. Cheraghian, L. Petersson, M. Harandi, R. Hartley",
       img: null,
       seed: 7,
       links: { page: "https://alichr.github.io" }
@@ -177,18 +186,18 @@ window.VRI = {
       title: "Fighting Hallucinations with Counterfactuals: Diffusion-Guided Perturbations for LVLM Hallucination Suppression",
       short: "Counterfactuals",
       venue: "CVPR 2026",
-      authors: "A. Cheraghian et al.",
+      authors: "H. Dastmalchi, A. An, A. Cheraghian, H. Barzamini",
       img: null,
       seed: 3,
-      links: { page: "https://alichr.github.io" }
+      links: { arXiv: "https://arxiv.org/abs/2603.10470" }
     },
     {
       title: "Learning Topology-Aware Representations via Test-Time Adaptation for Anomaly Segmentation",
       short: "TopoTTA",
       venue: "IEEE TPAMI 2026",
-      authors: "A. Zia, U. Ali, A. Rehman, U. Ramzan, K. Han, M. Faheem, S. Qureshi, W. Xiang",
+      authors: "A. Zia, U. Ali, A. Rehman, M. U. Ramzan, K. Han, M. Faheem, S. Qureshi, W. Xiang",
       img: "assets/img/work/topotta.webp",
-      links: { paper: "https://doi.org/10.1109/TPAMI.2026.3710196", code: "https://github.com/alizia369/TopoTTA", project: "https://topotta.github.io" }
+      links: { paper: "https://doi.org/10.1109/TPAMI.2026.3710196", arXiv: "https://arxiv.org/abs/2606.28268", code: "https://github.com/EngrUsmaanAli/TopoTTA", project: "https://topotta.github.io" }
     },
     {
       title: "ETTA: Efficient Test-Time Adaptation for Vision-Language Models through Dynamic Embedding Updates",
@@ -212,7 +221,7 @@ window.VRI = {
       title: "Topological Deep Learning: A Review of an Emerging Paradigm",
       short: "TDL Review",
       venue: "Artificial Intelligence Review 2024",
-      authors: "A. Zia, A. Khamis, J. Nichols, U. B. Tayab, Z. Hayder, et al.",
+      authors: "A. Zia, A. Khamis, J. Nichols, U. B. Tayab, Z. Hayder, V. Rolland, E. Stone, L. Petersson",
       img: "assets/img/work/tdl-review.webp",
       links: { paper: "https://link.springer.com/article/10.1007/s10462-024-10710-9", arXiv: "https://arxiv.org/abs/2302.03836" }
     },
@@ -232,7 +241,7 @@ window.VRI = {
       authors: "S. Rahman, S. H. Khan, F. Porikli",
       img: null,
       seed: 13,
-      links: { page: "https://sites.google.com/site/rshafin" }
+      links: { paper: "https://doi.org/10.1007/s11263-020-01355-6" }
     }
   ],
 
@@ -242,22 +251,29 @@ window.VRI = {
   venues: ["CVPR", "ICCV", "ECCV", "NeurIPS", "ICLR", "ICML", "WACV", "BMVC", "TPAMI", "TIP", "TMLR", "Pattern Recognition", "DICTA"],
 
   activities: [
-    { icon: "compass", title: "New directions", owner: "Hamidreza" },
-    { icon: "mic", title: "Workshops & tutorials", owner: "Ali Z." },
-    { icon: "grant", title: "Grants", owner: "Shafin" },
-    { icon: "trophy", title: "Kaggle challenges", owner: "Abdelwahed" },
-    { icon: "globe", title: "Website", owner: "Ali C." },
-    { icon: "chat", title: "Discord community", owner: "Ali C." },
-    { icon: "building", title: "Non-profit institute", owner: "Shafin" }
+    { icon: "compass", title: "New research directions", text: "Open problems we want to own." },
+    { icon: "mic", title: "Workshops & tutorials", text: "At DICTA 2027, CVPR, ICCV and ICML." },
+    { icon: "trophy", title: "Kaggle challenges", text: "Open benchmarks for the community." },
+    { icon: "grant", title: "Joint grants", text: "Funding shared research across institutions." },
+    { icon: "chat", title: "Discord community", text: "A place to meet, ask and build together." },
+    { icon: "building", title: "A non-profit institute", text: "Planned for 2028–2029." }
+  ],
+
+  news: [
+    { tag: "Nov 2026", text: "VRI Lab launches, bringing together researchers from five institutions in Australia, Bangladesh and Canada." },
+    { tag: "WACV 2027", text: "ATLAS accepted, with four VRI members as co-authors." },
+    { tag: "NeurIPS 2026", text: "TopoOT accepted: topology-aware optimal transport for test-time anomaly segmentation." },
+    { tag: "ICLR 2026", text: "DTO-KD selected for an oral presentation." }
   ],
 
   roadmap: [
     { when: "Now – 2027", what: "Launch website & Discord. Start the five 2027 topics. First submissions, workshop, tutorial and Kaggle proposals, grant applications." },
-    { when: "2028 – 2029", what: "Establish VRI as a non-profit organisation and research institute." }
+    { when: "2028 – 2029", what: "Establish VRI as a non-profit organisation or institute." }
   ],
 
   links: {
     github: "https://github.com/VRI-Lab",
+    email: "vrilab.research@gmail.com",
     discord: null
   }
 };
