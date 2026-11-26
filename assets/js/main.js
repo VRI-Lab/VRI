@@ -263,8 +263,8 @@
 
     function cube() {
       var p = []; for (var i = 0; i < N; i++) {
-        var f = (R() * 6) | 0, a = R() * 2 - 1, b = R() * 2 - 1, s = 0.95;
-        if (i % 4 === 0) { // bias some points onto cube edges for crisp structure
+        var f = (R() * 6) | 0, a = R() * 2 - 1, b = R() * 2 - 1, s = 0.74;
+        if (i % 5 < 3) { // most points sit on the cube's 12 edges for a crisp, logo-like wireframe
           var e = (R() * 12) | 0, t = R() * 2 - 1, sx = e & 1 ? 1 : -1, sy = e & 2 ? 1 : -1, ax = (e >> 2) % 3;
           p.push(ax === 0 ? [t * s, sx * s, sy * s] : ax === 1 ? [sx * s, t * s, sy * s] : [sx * s, sy * s, t * s]); continue;
         }
@@ -330,10 +330,10 @@
       var ry = time * 0.25 + mouse.x * 0.9, rx = -0.35 + mouse.y * 0.6 + Math.sin(time * 0.3) * 0.08;
       var cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
       var narrow = W < 760;
-      var scale = Math.min(W, H) * (narrow ? 0.30 : 0.27), ox = narrow ? W * 0.5 : W * 0.7, oy = narrow ? H * 0.32 : H * 0.5;
+      var scale = Math.min(W, H) * (narrow ? 0.27 : 0.25), ox = narrow ? W * 0.5 : W * 0.7, oy = narrow ? H * 0.32 : H * 0.5;
       for (i = 0; i < N; i++) {
         var p = cur[i], x = p[0] * cy - p[2] * sy, z = p[0] * sy + p[2] * cy, y = p[1] * cx - z * sx; z = p[1] * sx + z * cx;
-        var f = 3.2 / (3.2 + z); proj[i * 3] = ox + x * scale * f; proj[i * 3 + 1] = oy + y * scale * f; proj[i * 3 + 2] = z;
+        var f = 4.5 / (4.5 + z); proj[i * 3] = ox + x * scale * f; proj[i * 3 + 1] = oy + y * scale * f; proj[i * 3 + 2] = z;
       }
       var nb = m > 0.5 ? nbrs[(idx + 1) % shapes.length] : nbrs[idx];
       var edgeAlpha = 0.28 * (1 - Math.sin(m * Math.PI) * 0.75);
