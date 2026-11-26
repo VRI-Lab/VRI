@@ -383,7 +383,7 @@
       var hz = H * 0.28;
       for (var i = -12; i <= 12; i++) { ctx.beginPath(); ctx.moveTo(W / 2 + i * 18, hz); ctx.lineTo(W / 2 + i * W * 0.16, H); ctx.stroke(); }
       for (var j = 0; j < 14; j++) { var yy = hz + Math.pow(((j + (t * 0.6) % 1) / 14), 2) * (H - hz); ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); }
-      var path = function (s) { return [W * 0.5 + Math.sin(s * 0.9) * W * 0.22 + Math.sin(s * 2.1) * W * 0.05, H * 0.62 + Math.cos(s * 0.7) * H * 0.12]; };
+      var path = function (s) { return [W * 0.42 + Math.sin(s * 0.9) * W * 0.2 + Math.sin(s * 2.1) * W * 0.04, H * 0.66 + Math.cos(s * 0.7) * H * 0.12]; };
       // past trail
       ctx.lineWidth = 3; ctx.lineCap = "round";
       for (var k = 0; k < 40; k++) { var p0 = path(t - k * 0.04), p1 = path(t - (k + 1) * 0.04); ctx.strokeStyle = "rgba(34,195,181," + (0.9 - k / 44) + ")"; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke(); }
@@ -419,8 +419,8 @@
       var words = ["pick", "up", "the", "blue", "cube"];
       ctx.font = "600 12px Inter, sans-serif";
       for (var i = 0; i < words.length; i++) {
-        var x = ((t * 46 + i * 70) % (W * 0.62)) - 40, y = H * 0.2 + Math.sin(t + i) * 6;
-        var w = ctx.measureText(words[i]).width + 16, alpha = Math.min(1, Math.max(0, (W * 0.55 - x) / 60));
+        var span = words.length * 76, x = ((t * 40 + i * 76) % span) - 50, y = H * 0.2 + Math.sin(t + i) * 5;
+        var w = ctx.measureText(words[i]).width + 16, alpha = Math.min(1, Math.max(0, (span - 110 - x) / 60), Math.max(0, (x + 50) / 40));
         ctx.globalAlpha = alpha;
         ctx.fillStyle = "rgba(61,139,255,.22)"; ctx.strokeStyle = "rgba(61,139,255,.8)";
         roundRect(ctx, x, y - 12, w, 22, 11); ctx.fill(); ctx.stroke();
@@ -454,48 +454,47 @@
     // MLLM: image patches become tokens alongside text, with attention arcs.
     mllm: function (ctx, W, H, t) {
       ctx.fillStyle = "#0b1230"; ctx.fillRect(0, 0, W, H);
-      var n = 5, cell = Math.min(W, H) * 0.075, gx = W * 0.12, gy = H * 0.14;
-      var seqY = H * 0.6, seqX0 = W * 0.08, tok = Math.min(22, W / 18);
-      var cycle = (t * 0.35) % 1;
+      var n = 4, cell = H * 0.1, gx = W * 0.06, gy = H * 0.08;
+      var tok = Math.max(10, H * 0.085), seqX0 = W * 0.06, seqY = H * 0.62;
+      var cycle = (t * 0.3) % 1.25;
+      var lx = W * 0.66, ly = H * 0.08, lw = W * 0.28, lh = H * 0.36;
+      var tokPos = [];
       for (var i = 0; i < n * n; i++) {
         var r = (i / n) | 0, c = i % n;
-        var hue = 0.5 + 0.5 * Math.sin(r * 0.9 + c * 0.6 + 1.2);
-        var col = grad3(hue);
+        var col = grad3(0.5 + 0.5 * Math.sin(r * 0.9 + c * 0.7 + 1.2));
         var sx = gx + c * (cell + 2), sy = gy + r * (cell + 2);
-        var k = i / (n * n), local = Math.max(0, Math.min(1, (cycle * 1.6 - k * 0.6)));
-        local = local * local * (3 - 2 * local);
-        var tx = seqX0 + (i % 12) * (tok + 3), ty = seqY + ((i / 12) | 0) * (tok + 3);
-        ctx.globalAlpha = 0.95;
-        ctx.fillStyle = col;
-        var x = sx + (tx - sx) * local, y = sy + (ty - sy) * local, s = cell + (tok - cell) * local;
-        ctx.fillRect(x, y, s, s);
+        var k = i / (n * n), local = Math.max(0, Math.min(1, cycle * 1.6 - k * 0.6)); local = local * local * (3 - 2 * local);
+        var tx = seqX0 + (i % 8) * (tok + 3), ty = seqY + ((i / 8) | 0) * (tok + 3);
+        var x = sx + (tx - sx) * local, y = sy + (ty - sy) * local, sz = cell + (tok - cell) * local;
+        ctx.fillStyle = col; ctx.globalAlpha = 0.95; ctx.fillRect(x, y, sz, sz);
+        if (local > 0.99) tokPos.push([tx + tok / 2, ty]);
       }
       ctx.globalAlpha = 1;
-      // text tokens
-      ctx.font = "600 11px Inter, sans-serif";
-      var words = ["what", "is", "the", "dog", "doing", "?"];
-      var tyy = seqY + 3 * (tok + 3);
+      // text tokens after the image tokens
+      var words = ["what", "is", "it", "doing", "?"];
+      ctx.font = "600 " + Math.round(tok * 0.62) + "px Inter, sans-serif";
+      var wx = seqX0 + 8 * (tok + 3) + 8, wy = seqY;
       for (var w = 0; w < words.length; w++) {
-        var wx = seqX0 + w * (tok * 2.3);
-        ctx.fillStyle = "rgba(255,255,255,.1)"; ctx.strokeStyle = "rgba(255,255,255,.4)";
-        roundRect(ctx, wx, tyy, tok * 2.1, tok, 6); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#e9edff"; ctx.fillText(words[w], wx + 5, tyy + tok * 0.68);
+        var ww = ctx.measureText(words[w]).width + 10;
+        if (wx + ww > W - 8) { wx = seqX0 + 8 * (tok + 3) + 8; wy += tok + 3; }
+        ctx.fillStyle = "rgba(255,255,255,.1)"; ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 1;
+        roundRect(ctx, wx, wy, ww, tok, 5); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#e9edff"; ctx.fillText(words[w], wx + 5, wy + tok * 0.72);
+        tokPos.push([wx + ww / 2, wy]);
+        wx += ww + 4;
       }
-      // attention arcs
-      ctx.lineWidth = 1.2;
-      for (var a = 0; a < 7; a++) {
-        var from = seqX0 + ((a * 5 + ((t * 2) | 0)) % 12) * (tok + 3) + tok / 2;
-        var to = seqX0 + ((a * 3 + 1) % 6) * (tok * 2.3) + tok;
-        var alpha = 0.25 + 0.5 * Math.abs(Math.sin(t * 1.5 + a));
-        ctx.strokeStyle = "rgba(177,77,255," + alpha + ")";
-        ctx.beginPath(); ctx.moveTo(from, seqY - 4); ctx.bezierCurveTo(from, seqY - 70 - a * 6, to, seqY - 70 - a * 6, to, tyy); ctx.stroke();
-      }
-      // LLM block
-      var lx = W * 0.72, ly = H * 0.16, lw = W * 0.22, lh = H * 0.36;
-      var gr = ctx.createLinearGradient(lx, ly, lx + lw, ly + lh); gr.addColorStop(0, "rgba(123,92,255,.5)"); gr.addColorStop(1, "rgba(61,139,255,.25)");
-      ctx.fillStyle = gr; roundRect(ctx, lx, ly, lw, lh, 14); ctx.fill();
-      ctx.fillStyle = "#fff"; ctx.font = "700 15px 'Space Grotesk', Inter, sans-serif"; ctx.fillText("LLM", lx + lw / 2 - 15, ly + lh / 2 + 5);
-      for (var b = 0; b < 4; b++) { ctx.fillStyle = "rgba(255,255,255," + (0.15 + 0.15 * Math.abs(Math.sin(t * 2 + b))) + ")"; ctx.fillRect(lx + 12, ly + 14 + b * 9, lw - 24, 4); }
+      // tokens flow into the language model
+      ctx.lineWidth = 1;
+      tokPos.forEach(function (p, j) {
+        var a = 0.12 + 0.45 * Math.abs(Math.sin(t * 1.6 + j * 0.7));
+        ctx.strokeStyle = "rgba(150,120,255," + a.toFixed(2) + ")";
+        ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.bezierCurveTo(p[0], p[1] - H * 0.18, lx + lw / 2, ly + lh + H * 0.12, lx + lw / 2, ly + lh); ctx.stroke();
+      });
+      var gr = ctx.createLinearGradient(lx, ly, lx + lw, ly + lh); gr.addColorStop(0, "rgba(123,92,255,.55)"); gr.addColorStop(1, "rgba(61,139,255,.3)");
+      ctx.fillStyle = gr; roundRect(ctx, lx, ly, lw, lh, 12); ctx.fill();
+      for (var b = 0; b < 3; b++) { ctx.fillStyle = "rgba(255,255,255," + (0.15 + 0.2 * Math.abs(Math.sin(t * 2 + b))) + ")"; ctx.fillRect(lx + 10, ly + 10 + b * 7, lw - 20, 3); }
+      ctx.fillStyle = "#fff"; ctx.font = "700 " + Math.round(lh * 0.28) + "px 'Space Grotesk', Inter, sans-serif"; ctx.textAlign = "center";
+      ctx.fillText("LLM", lx + lw / 2, ly + lh * 0.82); ctx.textAlign = "left";
     },
 
     // Unified model: two streams braid into one and diverge to outputs.
@@ -560,10 +559,17 @@
   function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 
   function topicScenes() {
+    // Each scene is drawn in the upper band of its tile so the title text below stays clear.
+    var BAND = { world: 0.66, action: 0.54, mllm: 0.54, unified: 0.54, foundation: 0.54 };
     document.querySelectorAll(".topic canvas").forEach(function (cv) {
       var ctx = cv.getContext("2d"), fn = SCENES[cv.dataset.scene]; if (!fn) return;
       animateWhenVisible(cv, function (t) {
-        var s = fitCanvas(cv); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); fn(ctx, s.w, s.h, t, cv.dataset.color);
+        var s = fitCanvas(cv); ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        ctx.fillStyle = "#0b1230"; ctx.fillRect(0, 0, s.w, s.h);
+        var bh = s.h * (BAND[cv.dataset.scene] || 0.6);
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, s.w, bh); ctx.clip();
+        fn(ctx, s.w, bh, t, cv.dataset.color);
+        ctx.restore();
       });
     });
   }
