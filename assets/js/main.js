@@ -172,7 +172,7 @@
       track.classList.toggle("at-end", track.scrollLeft >= max);
       track.classList.toggle("at-start", track.scrollLeft <= 4);
     };
-    track.addEventListener("scroll", upd, { passive: true }); window.addEventListener("resize", upd); upd();
+    track.addEventListener("scroll", upd, { passive: true }); window.addEventListener("resize", upd); requestAnimationFrame(upd);
   }
 
   function renderVenues() {
@@ -289,7 +289,7 @@
   function animateWhenVisible(cv, draw, opts) {
     opts = opts || {};
     watchSize(cv);
-    var running = false, onScreen = false, raf = 0, last = 0, prev = 0, elapsed = opts.start || 0;
+    var running = false, onScreen = false, raf = 0, last = 0, prev = 0, elapsed = opts.start || 0, cost = 0;
     var minGap = opts.fps ? 1000 / opts.fps - 2 : 0;
     var loop = function (t) {
       if (!running) return;
@@ -297,7 +297,10 @@
       if (minGap && t - last < minGap) return;
       var dt = prev ? Math.min(0.1, (t - prev) / 1000) : 0;
       prev = t; last = t; elapsed += dt;
+      var c0 = performance.now();
       draw(elapsed, dt);
+      // adaptive: if frames are expensive on this device, drop to 30 fps
+      if (opts.adaptive && !minGap) { cost = cost * 0.9 + (performance.now() - c0) * 0.1; if (cost > 8) minGap = 1000 / 30 - 2; }
     };
     var start = function () { if (!running && onScreen && !document.hidden && !MOTION.paused) { running = true; prev = 0; raf = requestAnimationFrame(loop); } };
     var stop = function () { running = false; cancelAnimationFrame(raf); };
@@ -312,7 +315,7 @@
     new IntersectionObserver(function (en) {
       onScreen = en[0].isIntersecting;
       if (onScreen) start(); else stop();
-    }, { rootMargin: "100px" }).observe(cv);
+    }, { rootMargin: opts.margin || "100px" }).observe(cv);
     document.addEventListener("visibilitychange", function () { if (document.hidden) stop(); else start(); });
   }
 
@@ -323,7 +326,7 @@
   function hero() {
     var cv = $("#heroCanvas"); if (!cv) return;
     var ctx = cv.getContext("2d");
-    var small = window.innerWidth < 760;
+    var small = Math.min(window.innerWidth, window.innerHeight) < 600 || window.matchMedia("(pointer: coarse)").matches;
     var N = small ? 400 : 820, K = 2;
     var label = $("#shapeName"), labelDot = $("#shapeDot");
     var R = rng(42);
@@ -436,7 +439,10 @@
       for (var e = 0; e < N * K; e++) if (d0[e] > lim[list[e >> 1].g]) out[e] = -1;
       return out;
     }
-    var NB_EYE = knn(EYE), NB_BRAIN = knn(BRAIN);
+    // the eye's graph is needed for the first frame; the brain's is built once the page is idle
+    var NB_EYE = knn(EYE), NB_BRAIN = null;
+    var buildBrain = function () { if (!NB_BRAIN) NB_BRAIN = knn(BRAIN); };
+    (window.requestIdleCallback || function (f) { return setTimeout(f, 300); })(buildBrain, { timeout: 2500 });
 
     var pulses = []; for (var pq = 0; pq < 24; pq++) pulses.push({ i: (R() * N) | 0, k: 0, t: R() });
     var mouse = { x: 0, y: 0, tx: 0, ty: 0 };
@@ -520,11 +526,11 @@
         var f = 4.5 / (4.5 + z); px[i] = ox + x * scale * f; py[i] = oy + y * scale * f; pz[i] = z;
       }
 
+      if (m >= 0.5 && !NB_BRAIN) buildBrain();
       var nb = m < 0.5 ? NB_EYE : NB_BRAIN;
       // edges fade out during the morph so the outline never turns into a hairball
       var edgeAlpha = 0.32 * Math.max(0, 1 - Math.min(m, 1 - m) / 0.15);
       ctx.lineWidth = 1;
-      ctx.globalCompositeOperation = "lighter";
       if (edgeAlpha > 0.01) for (var bk = 0; bk < BUCKETS; bk++) {
         ctx.beginPath();
         var lo = -1.6 + bk * (3.2 / BUCKETS), hi = lo + 3.2 / BUCKETS;
@@ -542,6 +548,7 @@
           for (k = 0; k < K; k++) { jn = NB_BRAIN[i * K + k]; if (jn < 0 || !mem[jn]) continue; ctx.moveTo(px[i], py[i]); ctx.lineTo(px[jn], py[jn]); } }
         ctx.strokeStyle = hexA(REGIONS[active].color, (0.75 * hl).toFixed(3)); ctx.lineWidth = 1.3; ctx.stroke(); ctx.lineWidth = 1;
       }
+      ctx.globalCompositeOperation = "lighter";
       var pr = Math.max(1.1, Math.min(2, scale / 70));
       var glowS = Math.max(9, Math.min(20, scale * 0.13));
       var cxs = 0, cys = 0, cn = 0;
@@ -607,7 +614,7 @@
       }
     }
     window.addEventListener("resize", function () { lastW = 0; });
-    animateWhenVisible(cv, draw, { fps: small ? 30 : 0, still: EYE_HOLD + MORPH + REG_T * 3 + 1.1 });
+    animateWhenVisible(cv, draw, { fps: small ? 30 : 0, adaptive: true, margin: "0px", still: EYE_HOLD + MORPH + REG_T * 3 + 1.1 });
   }
 
   /* ------------------------------------------------------------------ */
@@ -851,7 +858,7 @@
       measure(); window.addEventListener("resize", measure);
       if (ro && body) new ResizeObserver(measure).observe(body);
       animateWhenVisible(cv, function (t) {
-        var s = fitCanvas(cv); ctx.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
+        var s = fitCanvas(cv, 1.5); ctx.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
         ctx.fillStyle = "#0b1230"; ctx.fillRect(0, 0, s.w, s.h);
         var bh = Math.max(60, Math.min(s.h, band || s.h * 0.55));
         ctx.save(); ctx.beginPath(); ctx.rect(0, 0, s.w, bh); ctx.clip();
@@ -919,8 +926,12 @@
         var shade = ctx.createLinearGradient(0, H * 0.35, 0, H); shade.addColorStop(0, "rgba(6,10,24,0)"); shade.addColorStop(1, "rgba(6,10,24,.8)");
         ctx.fillStyle = shade; ctx.fillRect(0, 0, W, H);
       };
-      paint();
-      var to; window.addEventListener("resize", function () { clearTimeout(to); to = setTimeout(paint, 150); });
+      var painted = false;
+      if ("IntersectionObserver" in window) {
+        var io = new IntersectionObserver(function (en) { if (en[0].isIntersecting && !painted) { painted = true; paint(); io.disconnect(); } }, { rootMargin: "300px" });
+        io.observe(cv);
+      } else { painted = true; paint(); }
+      var to; window.addEventListener("resize", function () { if (!painted) return; clearTimeout(to); to = setTimeout(paint, 150); });
     });
   }
 
@@ -946,6 +957,7 @@
   /* ------------------------------------------------------------------ */
   renderMission(); renderNews(); renderPrinciples(); renderPeople(); renderWork(); renderVenues(); renderPlan();
   setupNav(); setupReveal(); setupPause();
-  hero(); topicScenes(); covers(); joinBg();
+  // canvases start after the first paint so text appears immediately
+  requestAnimationFrame(function () { setTimeout(function () { hero(); topicScenes(); covers(); joinBg(); }, 0); });
   var y = document.getElementById("year"); if (y) y.textContent = new Date().getFullYear();
 })();
