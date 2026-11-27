@@ -137,6 +137,7 @@
       var cover = el("div", "cover");
       if (p.img) {
         cover.classList.add("is-figure");
+        if (p.invert) cover.classList.add("is-diagram");
         var img = new Image(); img.src = p.img; img.alt = "Figure from " + p.short; img.loading = "lazy"; img.decoding = "async";
         cover.appendChild(img);
         cover.appendChild(el("span", "gen-title", esc(p.short)));
@@ -289,7 +290,7 @@
   function animateWhenVisible(cv, draw, opts) {
     opts = opts || {};
     watchSize(cv);
-    var running = false, onScreen = false, raf = 0, last = 0, prev = 0, elapsed = opts.start || 0, cost = 0;
+    var running = false, onScreen = false, raf = 0, last = 0, prev = 0, elapsed = opts.start || 0, cost = 0, frames = 0;
     var minGap = opts.fps ? 1000 / opts.fps - 2 : 0;
     var loop = function (t) {
       if (!running) return;
@@ -297,10 +298,9 @@
       if (minGap && t - last < minGap) return;
       var dt = prev ? Math.min(0.1, (t - prev) / 1000) : 0;
       prev = t; last = t; elapsed += dt;
-      var c0 = performance.now();
       draw(elapsed, dt);
-      // adaptive: if frames are expensive on this device, drop to 30 fps
-      if (opts.adaptive && !minGap) { cost = cost * 0.9 + (performance.now() - c0) * 0.1; if (cost > 8) minGap = 1000 / 30 - 2; }
+      // adaptive: if the device can't keep up (long frame intervals), drop to 30 fps
+      if (opts.adaptive && !minGap && dt) { cost = cost ? cost * 0.9 + dt * 100 : dt * 1000; if (++frames > 20 && cost > 20) minGap = 1000 / 30 - 2; }
     };
     var start = function () { if (!running && onScreen && !document.hidden && !MOTION.paused) { running = true; prev = 0; raf = requestAnimationFrame(loop); } };
     var stop = function () { running = false; cancelAnimationFrame(raf); };
@@ -394,15 +394,17 @@
     }
 
     // One region per principle, in the same colours as the Philosophy tiles.
-    function belowFissure(v) { return v[1] > 0.1 - 0.32 * v[0]; }
-    function motorStrip(v) { return Math.abs(v[0] - (0.22 + 0.3 * v[1])) < 0.17 && v[1] < 0.1 && !belowFissure(v); }
+    function fissureDist(v) { return v[1] - (0.1 - 0.32 * v[0]); }     // > 0 means below the lateral fissure
+    function belowFissure(v) { return v[0] < 0.65 && fissureDist(v) > 0; }
+    function motorStrip(v) { return Math.abs(v[0] - (0.24 + 0.3 * v[1])) < 0.2 && v[1] < 0.1 && !belowFissure(v); }
+    function somatoStrip(v) { return Math.abs(v[0] - (0.0 + 0.3 * v[1])) < 0.12 && v[1] < 0.05 && !belowFissure(v); }
     var REGIONS = [
-      { name: "Visual cortex", role: "Specialised senses", color: "#16a3c9", test: function (v, g) { return g === 0 && v[0] < -0.55; } },
-      { name: "Association cortex", role: "Grounding", color: "#7b5cff", test: function (v, g) { return g === 0 && v[0] >= -0.55 && v[0] < 0.12 && v[1] < 0 && !motorStrip(v); } },
-      { name: "Temporal lobe · Cerebellum", short: "Temporal lobe", role: "Prediction", color: "#22c3b5", test: function (v, g) { return g === 1 || (g === 0 && belowFissure(v) && v[0] > -0.5 && v[0] < 0.7); } },
-      { name: "Prefrontal cortex", role: "Adaptation", color: "#2fd39a", test: function (v, g) { return g === 0 && v[0] > 0.55 && !belowFissure(v); } },
+      { name: "Sensory cortices", role: "Specialised senses", color: "#16a3c9", test: function (v, g) { if (g !== 0) return false; var fd = fissureDist(v); return somatoStrip(v) || (fd > 0 && fd < 0.18 && v[0] > -0.45 && v[0] < 0.6); } },
+      { name: "Association cortex", role: "Grounding", color: "#7b5cff", test: function (v, g) { return g === 0 && v[0] >= -0.6 && v[0] < 0.12 && v[1] < 0.12 && !belowFissure(v); } },
+      { name: "Temporal lobe · Cerebellum", short: "Temporal lobe", role: "Prediction", color: "#22c3b5", test: function (v, g) { return g === 1 || (g === 0 && fissureDist(v) > 0.1 && v[0] > -0.5 && v[0] < 0.7); } },
+      { name: "Prefrontal cortex", role: "Adaptation", color: "#2fd39a", test: function (v, g) { return g === 0 && v[0] > 0.55 && v[1] < 0.3; } },
       { name: "Motor cortex", role: "Action", color: "#3d8bff", test: function (v, g) { return g === 0 && motorStrip(v); } },
-      { name: "Visual cortex · Imagery", short: "Visual cortex", role: "Shared machinery", color: "#b14dff", test: function (v, g) { return g === 0 && v[0] < -0.5; } }
+      { name: "Visual cortex · Imagery", short: "Visual cortex", role: "Shared machinery", color: "#b14dff", test: function (v, g) { return g === 0 && v[0] < -0.58; } }
     ];
 
     var EYE = eye(), BRAIN = brain();
@@ -461,7 +463,10 @@
       layout.narrow = !side;
       if (side) {
         layout.scale = Math.max(70, Math.min(H * 0.26, room / 3.6));
-        layout.ox = textRight + 20 + room / 2; layout.oy = Math.max(H * 0.48, 72 + layout.scale * 1.3);
+        var vh = Math.min(H, window.innerHeight);
+        layout.vh = vh;
+        layout.scale = Math.min(layout.scale, (vh - 110) / 2.6);
+        layout.ox = textRight + 20 + room / 2; layout.oy = Math.max(vh * 0.5, 72 + layout.scale * 1.3);
         cv.style.opacity = "";
       } else {
         var eb = inner && inner.querySelector(".eyebrow");
@@ -545,7 +550,7 @@
       if (mem && hl > 0) {
         ctx.beginPath();
         for (i = 0; i < N; i++) { if (!mem[i] || pz[i] > 0.25) continue;
-          for (k = 0; k < K; k++) { jn = NB_BRAIN[i * K + k]; if (jn < 0 || !mem[jn]) continue; ctx.moveTo(px[i], py[i]); ctx.lineTo(px[jn], py[jn]); } }
+          for (k = 0; k < K; k++) { jn = NB_BRAIN[i * K + k]; if (jn < 0 || !mem[jn] || pz[jn] > 0.25) continue; ctx.moveTo(px[i], py[i]); ctx.lineTo(px[jn], py[jn]); } }
         ctx.strokeStyle = hexA(REGIONS[active].color, (0.75 * hl).toFixed(3)); ctx.lineWidth = 1.3; ctx.stroke(); ctx.lineWidth = 1;
       }
       ctx.globalCompositeOperation = "lighter";
@@ -597,6 +602,7 @@
       // region callout (side layout only): label above or below the brain, joined by a leader line
       if (mem && cn > 4 && !layout.narrow && hl > 0.05) {
         var rcx = cxs / cn, rcy = cys / cn, below = rcy > oy + scale * 0.15;
+        if (below && oy + scale * 1.05 + 40 > (layout.vh || H)) below = false;
         var ey = below ? oy + scale * 1.05 : oy - scale * 1.1, ex = rcx;
         ctx.font = "600 14px Inter, sans-serif";
         var tw = Math.max(ctx.measureText(REGIONS[active].name).width, REGIONS[active].role.length * 9);
@@ -958,6 +964,8 @@
   renderMission(); renderNews(); renderPrinciples(); renderPeople(); renderWork(); renderVenues(); renderPlan();
   setupNav(); setupReveal(); setupPause();
   // canvases start after the first paint so text appears immediately
-  requestAnimationFrame(function () { setTimeout(function () { hero(); topicScenes(); covers(); joinBg(); }, 0); });
+  requestAnimationFrame(function () {
+    [hero, topicScenes, covers, joinBg].forEach(function (fn, i) { setTimeout(fn, i * 16); });
+  });
   var y = document.getElementById("year"); if (y) y.textContent = new Date().getFullYear();
 })();

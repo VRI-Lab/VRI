@@ -13,7 +13,7 @@ window.VRI = {
     {
       title: "Prediction",
       text: "World models that predict what happens next, as the hippocampus simulates possible futures and the cerebellum forecasts the results of movement.",
-      brain: "Hippocampus · Cerebellum",
+      brain: "Temporal lobe · Cerebellum",
       scene: "world",
       color: "#22c3b5"
     },
@@ -27,7 +27,7 @@ window.VRI = {
     {
       title: "Action",
       text: "Models that turn instructions into plans and movement, through language, planning and motor pathways.",
-      brain: "Language · Prefrontal · Motor",
+      brain: "Motor cortex",
       scene: "action",
       color: "#3d8bff"
     },
@@ -40,7 +40,7 @@ window.VRI = {
     },
     {
       title: "Specialised senses",
-      text: "Foundation models for radar, spectral and time-series data, like dedicated sensory cortex.",
+      text: "Foundation models for radar, spectral and time-series data, like dedicated sensory cortices.",
       brain: "Sensory cortices",
       scene: "foundation",
       color: "#16a3c9"
@@ -48,7 +48,7 @@ window.VRI = {
     {
       title: "Adaptation",
       text: "Learning on the fly when conditions shift, as the brain recalibrates without labels.",
-      brain: "Recalibration without labels",
+      brain: "Prefrontal cortex",
       scene: "adapt",
       color: "#2fd39a"
     }
@@ -187,6 +187,7 @@ window.VRI = {
       venue: "ECCV 2026",
       authors: "A. Zia, M. U. Ramzan, A. Khamis, U. Ali, A. Rehman",
       img: "assets/img/work/hyperradar.webp",
+      invert: true,
       links: { arXiv: "https://arxiv.org/abs/2606.31609", code: "https://github.com/alizia369/HyperRadar" }
     },
     {
@@ -204,6 +205,7 @@ window.VRI = {
       venue: "IEEE TPAMI 2026",
       authors: "A. Zia, U. Ali, A. Rehman, M. U. Ramzan, K. Han, M. Faheem, S. Qureshi, W. Xiang",
       img: "assets/img/work/topotta.webp",
+      invert: true,
       links: { paper: "https://doi.org/10.1109/TPAMI.2026.3710196", arXiv: "https://arxiv.org/abs/2606.28268", code: "https://github.com/EngrUsmaanAli/TopoTTA", project: "https://topotta.github.io" }
     },
     {
@@ -230,6 +232,7 @@ window.VRI = {
       venue: "AI Review 2024",
       authors: "A. Zia, A. Khamis, J. Nichols, U. B. Tayab, Z. Hayder, V. Rolland, E. Stone, L. Petersson",
       img: "assets/img/work/tdl-review.webp",
+      invert: true,
       links: { paper: "https://link.springer.com/article/10.1007/s10462-024-10710-9", arXiv: "https://arxiv.org/abs/2302.03836" }
     },
     {
