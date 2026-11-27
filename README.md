@@ -10,11 +10,14 @@ Nearly everything lives in **`assets/js/data.js`**:
 
 | What | Where in `data.js` |
 |---|---|
-| Research topics and leads | `topics` |
+| Mission statement | `mission` |
+| Philosophy principles (tiles with animations) | `principles` |
+| Approach cards | `approach` |
 | People, roles, links | `people` |
 | Selected papers | `papers` |
 | Target venues (scrolling strip) | `venues` |
-| Activities and owners | `activities` |
+| Community & resources | `activities` |
+| Latest news | `news` |
 | Roadmap | `roadmap` |
 
 Commit to `main` and the site updates within a minute or two.
@@ -36,7 +39,7 @@ Add an object to `papers` in `data.js`. Put a figure in `assets/img/work/` and s
 index.html            page structure and metadata
 assets/css/style.css  styles
 assets/js/data.js     content
-assets/js/main.js     rendering, animations (hero point cloud, topic scenes)
+assets/js/main.js     rendering, animations (hero point cloud, philosophy tile scenes)
 assets/fonts/         self-hosted Inter and Space Grotesk (SIL OFL)
 assets/img/           logo, icons, photos, paper figures
 ```

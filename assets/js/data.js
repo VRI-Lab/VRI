@@ -5,52 +5,59 @@
    ========================================================================= */
 
 window.VRI = {
-  topics: [
+  mission: "From models to brain: we build visual AI that predicts, grounds, adapts and acts, closing the gap between today's models and the intelligence of the brain.",
+
+  /* Philosophy: each principle pairs a capability with the brain system that inspires it.
+     scene = which animation draws on the tile. */
+  principles: [
     {
-      id: "world-models",
-      num: "01",
-      title: "World Models",
-      blurb: "Agents that imagine the future before they act.",
-      leads: ["ali-zia", "ali-cheraghian"],
+      title: "Prediction",
+      text: "World models that imagine consequences, as the hippocampus and cerebellum do.",
+      brain: "Hippocampus · Cerebellum",
       scene: "world",
       color: "#22c3b5"
     },
     {
-      id: "lwam",
-      num: "02",
-      title: "Language World Action Models",
-      blurb: "From words, to plans, to physical action.",
-      leads: ["hamidreza-dastmalchi"],
-      scene: "action",
-      color: "#3d8bff"
-    },
-    {
-      id: "mllm",
-      num: "03",
-      title: "Multimodal Large Language Models",
-      blurb: "Pixels and tokens, reasoning in one space.",
-      leads: ["abdelwahed-khamis"],
+      title: "Grounding",
+      text: "Multimodal models that check language against what they see, as association cortex does.",
+      brain: "Association cortex",
       scene: "mllm",
       color: "#7b5cff"
     },
     {
-      id: "unified",
-      num: "04",
-      title: "Unified Large Language Models",
-      blurb: "One model to understand and to generate.",
-      leads: ["shafin-rahman"],
+      title: "Action",
+      text: "Models that turn instructions into plans and movement, through language, planning and motor pathways.",
+      brain: "Language · Prefrontal · Motor",
+      scene: "action",
+      color: "#3d8bff"
+    },
+    {
+      title: "Shared machinery",
+      text: "Unified models where perceiving and imagining use the same circuits.",
+      brain: "Visual cortex, seeing & imagining",
       scene: "unified",
       color: "#b14dff"
     },
     {
-      id: "foundation",
-      num: "05",
-      title: "Foundation AI Models",
-      blurb: "Foundation models for narrow domains, from vision to time series.",
-      leads: ["lars-petersson"],
+      title: "Specialised senses",
+      text: "Foundation models for radar, spectral and time-series data, like dedicated sensory cortex.",
+      brain: "Sensory cortices",
       scene: "foundation",
       color: "#16a3c9"
+    },
+    {
+      title: "Adaptation",
+      text: "Learning on the fly when conditions shift, as the brain recalibrates without labels.",
+      brain: "Recalibration without labels",
+      scene: "adapt",
+      color: "#2fd39a"
     }
+  ],
+
+  approach: [
+    { icon: "brain", title: "Brain-inspired, not brain-copied", text: "Principles from neuroscience become engineering targets we can measure." },
+    { icon: "flask", title: "Rigorous and open", text: "Strong baselines, honest evaluation, and code released with our papers." },
+    { icon: "globe", title: "Built for the real world", text: "Radar, spectral, medical and field data, where models usually break." }
   ],
 
   people: [
@@ -250,12 +257,13 @@ window.VRI = {
 
   venues: ["CVPR", "ICCV", "ECCV", "NeurIPS", "ICLR", "ICML", "WACV", "BMVC", "TPAMI", "TIP", "TMLR", "Pattern Recognition", "DICTA"],
 
+  /* Community & resources */
   activities: [
-    { icon: "compass", title: "New research directions", text: "Open problems we want to own." },
     { icon: "mic", title: "Workshops & tutorials", text: "At DICTA 2027, CVPR, ICCV and ICML." },
     { icon: "trophy", title: "Kaggle challenges", text: "Open benchmarks for the community." },
+    { icon: "code", title: "Open code", text: "Implementations released on GitHub.", href: "https://github.com/VRI-Lab" },
+    { icon: "chat", title: "Discord community", text: "A place to meet, ask and build together. Launching soon." },
     { icon: "grant", title: "Joint grants", text: "Funding shared research across institutions." },
-    { icon: "chat", title: "Discord community", text: "A place to meet, ask and build together." },
     { icon: "building", title: "A non-profit institute", text: "Planned for 2028–2029." }
   ],
 
