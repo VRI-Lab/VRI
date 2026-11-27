@@ -294,182 +294,273 @@
     var cv = $("#heroCanvas"); if (!cv) return;
     var ctx = cv.getContext("2d");
     var small = window.innerWidth < 760;
-    var N = small ? 360 : 600, K = 2;
-    var label = $("#shapeName");
+    var N = small ? 380 : 820, K = 2;
+    var label = $("#shapeName"), labelDot = $("#shapeDot");
     var R = rng(42);
     var inner = $(".hero-inner");
+    var PI2 = Math.PI * 2;
 
-    // Resample a structured point list to exactly N points, keeping its regularity.
-    function fit(list) { var out = []; for (var i = 0; i < N; i++) out.push(list[Math.floor(i * list.length / N)].slice()); return out; }
-    function cube() {
-      var s = 0.74, p = [], E = 26, G = 7, e, t, k;
-      var corners = [[-1, -1, -1], [1, -1, -1], [-1, 1, -1], [1, 1, -1], [-1, -1, 1], [1, -1, 1], [-1, 1, 1], [1, 1, 1]];
-      var edges = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
-      for (e = 0; e < 12; e++) for (k = 0; k < E; k++) {
-        t = k / E; var A = corners[edges[e][0]], B = corners[edges[e][1]];
-        p.push([(A[0] + (B[0] - A[0]) * t) * s, (A[1] + (B[1] - A[1]) * t) * s, (A[2] + (B[2] - A[2]) * t) * s]);
+    // Coordinates: x = left/right on screen (anterior is +x for the brain),
+    // y = down on screen (so "up" is negative), z = depth (negative = towards viewer).
+    function fit(list) { var out = []; for (var i = 0; i < N; i++) out.push(list[Math.floor(i * list.length / N)]); return out; }
+    function fib(n) { var p = [], g = Math.PI * (3 - Math.sqrt(5)); for (var i = 0; i < n; i++) { var y = 1 - (i / (n - 1)) * 2, r = Math.sqrt(1 - y * y), th = g * i; p.push([Math.cos(th) * r, y, Math.sin(th) * r]); } return p; }
+
+    /* ---------- EYE: almond eyelids, iris rings, pupil, eyeball ---------- */
+    function eye() {
+      var p = [];
+      // eyelids: three parallel strands per lid for thickness
+      var nl = Math.round(N * 0.07);
+      for (var lid = -1; lid <= 1; lid += 2) for (var s = 0; s < 3; s++) for (var i = 0; i < nl; i++) {
+        var u = (i / (nl - 1)) * 2 - 1, x = u * 1.55, h = 0.78 + s * 0.07;
+        p.push({ v: [x, lid * h * (1 - u * u) * (1 - 0.12 * u), -1.0 - s * 0.03], g: 2 });
       }
-      for (var f = 0; f < 6; f++) for (var a = 1; a < G; a++) for (var b = 1; b < G; b++) {
-        var u = (a / G) * 2 - 1, v = (b / G) * 2 - 1, sg = f & 1 ? 1 : -1, ax = f >> 1;
-        p.push(ax === 0 ? [sg * s, u * s, v * s] : ax === 1 ? [u * s, sg * s, v * s] : [u * s, v * s, sg * s]);
+      // iris: concentric rings in a shallow dome, pupil left empty
+      var rings = 8;
+      for (var r = 0; r < rings; r++) {
+        var rad = 0.2 + (r / (rings - 1)) * 0.36, cnt = Math.round(14 + rad * 70);
+        for (var k = 0; k < cnt; k++) { var a = (k / cnt) * PI2 + r * 0.3; p.push({ v: [Math.cos(a) * rad, Math.sin(a) * rad, -0.93 + rad * rad * 0.35], g: 1 }); }
       }
-      // interleave edges and faces so resampling keeps both
-      var edgesPart = p.slice(0, 12 * E), facePart = p.slice(12 * E), mixed = [];
-      var ratio = facePart.length / edgesPart.length, fi = 0;
-      for (var i = 0; i < edgesPart.length; i++) { mixed.push(edgesPart[i]); while (fi < (i + 1) * ratio && fi < facePart.length) mixed.push(facePart[fi++]); }
-      return fit(mixed);
+      // eyeball, only the part visible between the lids
+      fib(Math.round(N * 1.1)).forEach(function (q) {
+        var x = q[0] * 0.98, y = q[1] * 0.98, z = q[2] * 0.98 - 0.02;
+        if (z > -0.2) return;                                   // back half hidden by lids
+        if (x * x + y * y < 0.6 * 0.6 && z < -0.75) return;     // leave room for the iris
+        var lim = 0.78 * (1 - Math.pow(x / 1.55, 2)); if (Math.abs(y) > lim) return;
+        p.push({ v: [x, y, z], g: 0 });
+      });
+      return fit(p);
     }
-    function sphere() {
-      var p = [], g = Math.PI * (3 - Math.sqrt(5));
-      for (var i = 0; i < N; i++) { var y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), th = g * i; p.push([Math.cos(th) * r * 1.1, y * 1.1, Math.sin(th) * r * 1.1]); }
-      return p;
-    }
-    function torus() {
-      // one continuous helix wound around the torus: even coverage, no seam
-      var p = [], wind = small ? 17 : 23, Rr = 0.95, rr = 0.4;
-      for (var k = 0; k < N; k++) {
-        var u = (k / N) * Math.PI * 2, v = (k / N) * Math.PI * 2 * wind;
-        p.push([(Rr + rr * Math.cos(v)) * Math.cos(u), rr * Math.sin(v), (Rr + rr * Math.cos(v)) * Math.sin(u)]);
-      }
-      return p;
-    }
-    function trefoil() {
-      var ring = 5, nt = Math.ceil(N / ring), p = [];
-      for (var i = 0; i < nt; i++) {
-        var t = (i / nt) * Math.PI * 2;
-        var c = [Math.sin(t) + 2 * Math.sin(2 * t), Math.cos(t) - 2 * Math.cos(2 * t), -Math.sin(3 * t)];
-        var d = [Math.cos(t) + 4 * Math.cos(2 * t), -Math.sin(t) + 4 * Math.sin(2 * t), -3 * Math.cos(3 * t)];
-        var dl = Math.hypot(d[0], d[1], d[2]); d = [d[0] / dl, d[1] / dl, d[2] / dl];
-        var n1 = [-d[1], d[0], 0], nl = Math.hypot(n1[0], n1[1]) || 1; n1 = [n1[0] / nl, n1[1] / nl, 0];
-        var n2 = [d[1] * n1[2] - d[2] * n1[1], d[2] * n1[0] - d[0] * n1[2], d[0] * n1[1] - d[1] * n1[0]];
-        for (var j = 0; j < ring; j++) {
-          var a = (j / ring) * Math.PI * 2 + i * 0.3, rr = 0.32;
-          p.push([(c[0] + (n1[0] * Math.cos(a) + n2[0] * Math.sin(a)) * rr) * 0.4, (c[1] + (n1[1] * Math.cos(a) + n2[1] * Math.sin(a)) * rr) * 0.4, (c[2] + (n1[2] * Math.cos(a) + n2[2] * Math.sin(a)) * rr) * 0.4]);
-        }
+
+    /* ---------- BRAIN: two folded hemispheres, cerebellum, brainstem ---------- */
+    function brain() {
+      var p = [];
+      var hemi = fib(Math.round(N * 1.25));
+      [-1, 1].forEach(function (side) {
+        hemi.forEach(function (q) {
+          if (q[2] * side < -0.55) return;                       // open medial wall → longitudinal fissure
+          var th = Math.atan2(q[1], q[0]), ph = Math.acos(Math.max(-1, Math.min(1, q[2])));
+          var fold = 1 + 0.045 * Math.sin(th * 9 + ph * 3) * Math.sin(ph * 7);  // gyri
+          var x = q[0] * 1.08 * fold, y = q[1] * 0.8 * fold, z = q[2] * 0.48 * fold + side * 0.5;
+          if (y > 0.42) y = 0.42 + (y - 0.42) * 0.35;           // flatter underside
+          if (x < -0.3 && y > 0.25) y = 0.25 + (y - 0.25) * 0.5;  // tuck the occipital base
+          // lateral (Sylvian) fissure: a thin gap separating the temporal lobe
+          var fis = y - (0.08 - 0.32 * x);
+          if (x > -0.35 && x < 0.75 && Math.abs(fis) < 0.035 && Math.abs(z) > 0.75) return;
+          p.push({ v: [x, y, z], g: 0 });
+        });
+      });
+      // cerebellum with horizontal folia
+      fib(Math.round(N * 0.32)).forEach(function (q) {
+        var x = -0.72 + q[0] * 0.34, y = 0.55 + q[1] * 0.22 * (1 + 0.08 * Math.sin(q[1] * 26)), z = q[2] * 0.62;
+        if (q[0] > 0.35 && q[1] < 0) return;
+        p.push({ v: [x, y, z], g: 1 });
+      });
+      // brainstem
+      var ns = Math.round(N * 0.06);
+      for (var i = 0; i < ns; i++) {
+        var t = (i / ns), a = (i * 2.4) % PI2;
+        p.push({ v: [-0.28 - t * 0.12 + Math.cos(a) * 0.1, 0.42 + t * 0.55, Math.sin(a) * 0.1], g: 1 });
       }
       return fit(p);
     }
-    var shapes = [cube(), sphere(), torus(), trefoil()];
-    var names = ["cube", "sphere", "torus", "trefoil knot"];
-    // shuffle correspondence between shapes so morphs look organic
-    shapes.forEach(function (s, k) {
-      if (!k) return;
-      for (var i = N - 1; i > 0; i--) { var j = (R() * (i + 1)) | 0, tmp = s[i]; s[i] = s[j]; s[j] = tmp; }
-    });
-    // k-nearest-neighbour graph per shape, dropping unusually long edges
-    var nbrs = shapes.map(function (s) {
+
+    // Regions lit in turn: perceive → ground → predict → reason → act.
+    var REGIONS = [
+      { name: "Visual cortex", role: "Perception", color: "#16a3c9", test: function (v, g) { return g === 0 && v[0] < -0.55; } },
+      { name: "Association cortex", role: "Grounding", color: "#7b5cff", test: function (v, g) { return g === 0 && v[0] >= -0.55 && v[0] < 0.1 && v[1] < -0.05; } },
+      { name: "Hippocampus · Cerebellum", role: "Prediction", color: "#22c3b5", test: function (v, g) { return g === 1 ? v[1] < 0.8 : (v[1] > 0.12 && v[0] > -0.45 && v[0] < 0.55 && Math.abs(v[2]) > 0.6); } },
+      { name: "Prefrontal cortex", role: "Reasoning & planning", color: "#b14dff", test: function (v, g) { return g === 0 && v[0] > 0.52; } },
+      { name: "Motor cortex", role: "Action", color: "#3d8bff", test: function (v, g) { return g === 0 && v[0] >= 0.06 && v[0] < 0.5 && v[1] < -0.12; } }
+    ];
+
+    var EYE = eye(), BRAIN = brain();
+    // shuffle the brain so points travel organically between shapes
+    for (var i = N - 1; i > 0; i--) { var j = (R() * (i + 1)) | 0, tmp = BRAIN[i]; BRAIN[i] = BRAIN[j]; BRAIN[j] = tmp; }
+    var region = new Int8Array(N).fill(-1);
+    BRAIN.forEach(function (o, idx) { for (var r = 0; r < REGIONS.length; r++) if (REGIONS[r].test(o.v, o.g)) { region[idx] = r; break; } });
+    var eyeGroup = new Int8Array(N); EYE.forEach(function (o, idx) { eyeGroup[idx] = o.g; });
+
+    function knn(list) {
       var out = new Int16Array(N * K).fill(-1), dists = [];
       for (var i = 0; i < N; i++) {
-        var b0 = 1e9, b1 = 1e9, i0 = -1, i1 = -1;
+        var a = list[i].v, b0 = 1e9, b1 = 1e9, i0 = -1, i1 = -1;
         for (var j = 0; j < N; j++) { if (i === j) continue;
-          var dx = s[i][0] - s[j][0], dy = s[i][1] - s[j][1], dz = s[i][2] - s[j][2], d = dx * dx + dy * dy + dz * dz;
+          var b = list[j].v, dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2], d = dx * dx + dy * dy + dz * dz;
           if (d < 1e-6) continue;
           if (d < b0) { b1 = b0; i1 = i0; b0 = d; i0 = j; } else if (d < b1) { b1 = d; i1 = j; }
         }
         out[i * K] = i0; out[i * K + 1] = i1; dists.push(b0, b1);
       }
-      var sorted = dists.slice().sort(function (a, b) { return a - b; }), lim = sorted[sorted.length >> 1] * 2.6;
+      var sorted = dists.slice().sort(function (a, b) { return a - b; }), lim = sorted[sorted.length >> 1] * 3;
       for (var e = 0; e < N * K; e++) if (dists[e] > lim) out[e] = -1;
       return out;
-    });
-    var cur = shapes[0].map(function (v) { return v.slice(); });
-    var pulses = []; for (var pq = 0; pq < 22; pq++) pulses.push({ i: (R() * N) | 0, k: 0, t: R() });
+    }
+    var NB_EYE = knn(EYE), NB_BRAIN = knn(BRAIN);
+
+    var pulses = []; for (var pq = 0; pq < 24; pq++) pulses.push({ i: (R() * N) | 0, k: 0, t: R() });
     var mouse = { x: 0, y: 0, tx: 0, ty: 0 };
     window.addEventListener("pointermove", function (e) { mouse.tx = (e.clientX / window.innerWidth - 0.5); mouse.ty = (e.clientY / window.innerHeight - 0.5); }, { passive: true });
 
-    // Glow sprite, rendered once.
     var glow = document.createElement("canvas"); glow.width = glow.height = 40;
     var gctx = glow.getContext("2d"), gg = gctx.createRadialGradient(20, 20, 0, 20, 20, 20);
-    gg.addColorStop(0, "rgba(170,255,245,1)"); gg.addColorStop(0.25, "rgba(90,230,215,.55)"); gg.addColorStop(1, "rgba(34,195,181,0)");
+    gg.addColorStop(0, "rgba(255,255,255,1)"); gg.addColorStop(0.25, "rgba(150,235,255,.55)"); gg.addColorStop(1, "rgba(34,195,181,0)");
     gctx.fillStyle = gg; gctx.fillRect(0, 0, 40, 40);
 
-    // Layout: where the shape sits, kept clear of the headline.
     var layout = { ox: 0, oy: 0, scale: 1, narrow: false };
     function computeLayout(W, H) {
       var narrow = W < 1000 || W / H < 1.05;
       layout.narrow = narrow;
       if (narrow) {
-        // sit in the space between the nav and the headline block
         var eb = inner && inner.querySelector(".eyebrow");
         var top = inner ? inner.offsetTop + (eb ? eb.offsetTop : 0) : H * 0.5, avail = top - 72;
-        if (avail < 90) {
-          // short phones: no room above the text, so show it faintly behind instead
-          layout.scale = W * 0.28; layout.ox = W * 0.62; layout.oy = H * 0.36; cv.style.opacity = "0.32";
-        } else {
-          layout.scale = Math.min(W * 0.26, avail / 3.1); layout.ox = W * 0.5; layout.oy = 72 + avail / 2; cv.style.opacity = "";
-        }
+        if (avail < 90) { layout.scale = W * 0.24; layout.ox = W * 0.55; layout.oy = H * 0.36; cv.style.opacity = "0.32"; }
+        else { layout.scale = Math.min(W * 0.27, avail / 2.4); layout.ox = W * 0.5; layout.oy = 72 + avail / 2; cv.style.opacity = ""; }
       } else {
         var textRight = inner ? inner.getBoundingClientRect().right : W * 0.45;
         var room = W - textRight - 40;
-        layout.scale = Math.max(90, Math.min(H * 0.23, room / 3.4));
-        layout.ox = textRight + 20 + room / 2; layout.oy = H * 0.5;
+        layout.scale = Math.max(90, Math.min(H * 0.26, room / 3.6));
+        layout.ox = textRight + 20 + room / 2; layout.oy = H * 0.48;
+        cv.style.opacity = "";
       }
     }
     var lastW = 0, lastH = 0;
 
-    var HOLD = 4.2, MORPH = 2.2, CYCLE = HOLD + MORPH;
+    // Timeline: eye (hold) → morph → brain with five regions → morph → loop
+    var EYE_HOLD = 4.6, MORPH = 2.4, REG_T = 2.5, BRAIN_HOLD = REG_T * REGIONS.length;
+    var CYCLE = EYE_HOLD + MORPH + BRAIN_HOLD + MORPH;
     var px = new Float32Array(N), py = new Float32Array(N), pz = new Float32Array(N);
-    var lastIdx = -1;
-    var BUCKETS = 5;
+    var BUCKETS = 5, lastLabel = "";
+    function ease(x) { return x * x * (3 - 2 * x); }
+    function hexA(hex, a) { var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
 
     function draw(time) {
       var sz = fitCanvas(cv, 1.5), W = sz.w, H = sz.h;
       if (W !== lastW || H !== lastH) { computeLayout(W, H); lastW = W; lastH = H; }
       ctx.setTransform(sz.dpr, 0, 0, sz.dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
-      var phase = time % (CYCLE * shapes.length), idx = Math.floor(phase / CYCLE), local = phase - idx * CYCLE;
-      var a = shapes[idx], b = shapes[(idx + 1) % shapes.length];
-      var m = local < HOLD ? 0 : (local - HOLD) / MORPH; m = m * m * (3 - 2 * m);
-      var showIdx = m > 0.5 ? (idx + 1) % shapes.length : idx;
-      if (showIdx !== lastIdx && label) { label.textContent = names[showIdx]; lastIdx = showIdx; }
+
+      // m: 0 = eye, 1 = brain
+      var ph = time % CYCLE, m, active = -1, regLocal = 0;
+      if (ph < EYE_HOLD) m = 0;
+      else if (ph < EYE_HOLD + MORPH) m = ease((ph - EYE_HOLD) / MORPH);
+      else if (ph < EYE_HOLD + MORPH + BRAIN_HOLD) { m = 1; var bt = ph - EYE_HOLD - MORPH; active = Math.floor(bt / REG_T); regLocal = (bt % REG_T) / REG_T; }
+      else m = 1 - ease((ph - EYE_HOLD - MORPH - BRAIN_HOLD) / MORPH);
+      var hl = active >= 0 ? Math.min(1, regLocal * 5, (1 - regLocal) * 5) : 0; // highlight fade in/out
+
+      var txt = m < 0.5 ? "Perception · the eye" : (active >= 0 ? REGIONS[active].role + " · " + REGIONS[active].name : "Reasoning · the brain");
+      if (txt !== lastLabel && label) {
+        label.textContent = txt; lastLabel = txt;
+        if (labelDot) labelDot.style.background = m < 0.5 ? "#22c3b5" : (active >= 0 ? REGIONS[active].color : "#7b5cff");
+      }
+
       mouse.x += (mouse.tx - mouse.x) * 0.05; mouse.y += (mouse.ty - mouse.y) * 0.05;
-      var ry = time * 0.25 + mouse.x * 0.9, rx = -0.35 + mouse.y * 0.6 + Math.sin(time * 0.3) * 0.08;
+      // eye faces the viewer; the brain is seen from the side, swaying to show depth
+      var yawEye = Math.sin(time * 0.5) * 0.28, yawBrain = -0.35 + Math.sin(time * 0.35) * 0.45;
+      var ry = yawEye + (yawBrain - yawEye) * m + mouse.x * 0.6;
+      var rx = (Math.sin(time * 0.4) * 0.06) * (1 - m) + (-0.18 + Math.sin(time * 0.3) * 0.06) * m + mouse.y * 0.4;
       var cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
-      var scale = layout.scale, ox = layout.ox, oy = layout.oy;
+      var scale = layout.scale * (0.68 + 0.27 * m), ox = layout.ox, oy = layout.oy;
+      // the eye looks around
+      var gx = Math.sin(time * 0.9) * 0.16 + Math.sin(time * 2.3) * 0.03, gyv = Math.sin(time * 0.6 + 1) * 0.07;
+      var blink = Math.max(0, 1 - Math.abs(((time % 5.2) - 4.9) / 0.12)); // brief blink near the end of each 5.2 s
       for (var i = 0; i < N; i++) {
-        var A = a[i], B = b[i];
-        var x0 = A[0] + (B[0] - A[0]) * m, y0 = A[1] + (B[1] - A[1]) * m, z0 = A[2] + (B[2] - A[2]) * m;
+        var A = EYE[i].v, B = BRAIN[i].v, g = eyeGroup[i];
+        var ax = A[0], ay = A[1], az = A[2];
+        if (g === 1) { ax += gx; ay += gyv; }
+        else if (g === 2) ay *= (1 - blink * 0.85);
+        var x0 = ax + (B[0] - ax) * m, y0 = ay + (B[1] - ay) * m, z0 = az + (B[2] - az) * m;
         var x = x0 * cy - z0 * sy, z = x0 * sy + z0 * cy, y = y0 * cx - z * sx; z = y0 * sx + z * cx;
         var f = 4.5 / (4.5 + z); px[i] = ox + x * scale * f; py[i] = oy + y * scale * f; pz[i] = z;
       }
-      var nb = m > 0.5 ? nbrs[(idx + 1) % shapes.length] : nbrs[idx];
-      var edgeAlpha = 0.34 * (1 - Math.sin(m * Math.PI) * 0.8);
+
+      var nb = m < 0.5 ? NB_EYE : NB_BRAIN;
+      var edgeAlpha = 0.32 * (1 - Math.sin(m * Math.PI) * 0.8);
       ctx.lineWidth = 1;
       ctx.globalCompositeOperation = "lighter";
-      // edges grouped by depth bucket: one path per bucket
       for (var bk = 0; bk < BUCKETS; bk++) {
         ctx.beginPath();
-        var lo = -1.4 + bk * (2.8 / BUCKETS), hi = lo + 2.8 / BUCKETS;
+        var lo = -1.6 + bk * (3.2 / BUCKETS), hi = lo + 3.2 / BUCKETS;
         for (i = 0; i < N; i++) {
           var zz = pz[i]; if (zz < lo || zz >= hi) continue;
-          for (var k = 0; k < K; k++) { var j = nb[i * K + k]; if (j < 0) continue; ctx.moveTo(px[i], py[i]); ctx.lineTo(px[j], py[j]); }
+          for (var k = 0; k < K; k++) { var jn = nb[i * K + k]; if (jn < 0) continue; ctx.moveTo(px[i], py[i]); ctx.lineTo(px[jn], py[jn]); }
         }
-        ctx.strokeStyle = "rgba(110,160,255," + (edgeAlpha * (1 - (bk / (BUCKETS - 1)) * 0.7)).toFixed(3) + ")";
+        ctx.strokeStyle = "rgba(110,160,255," + (edgeAlpha * (1 - (bk / (BUCKETS - 1)) * 0.7) * (active >= 0 ? 0.75 : 1)).toFixed(3) + ")";
         ctx.stroke();
       }
-      var pr = layout.narrow ? 1.6 : 2;
+      // highlighted region edges
+      if (active >= 0 && hl > 0) {
+        ctx.beginPath();
+        for (i = 0; i < N; i++) { if (region[i] !== active) continue;
+          for (k = 0; k < K; k++) { jn = NB_BRAIN[i * K + k]; if (jn < 0 || region[jn] !== active) continue; ctx.moveTo(px[i], py[i]); ctx.lineTo(px[jn], py[jn]); } }
+        ctx.strokeStyle = hexA(REGIONS[active].color, (0.75 * hl).toFixed(3)); ctx.lineWidth = 1.3; ctx.stroke(); ctx.lineWidth = 1;
+      }
+      // points
+      var pr = Math.max(1.1, Math.min(2, scale / 70));
+      var glowS = Math.max(9, Math.min(20, scale * 0.13));
+      var cxs = 0, cys = 0, cn = 0;
       for (i = 0; i < N; i++) {
-        var dpt = Math.max(0, Math.min(1, (pz[i] + 1.3) / 2.6));
-        var hue = (i / N + time * 0.02) % 1;
-        ctx.fillStyle = grad3(hue < 0.5 ? hue * 2 : 2 - hue * 2);
-        ctx.globalAlpha = 0.95 - dpt * 0.6;
-        var rr = pr * (1.35 - dpt * 0.75);
+        var dpt = Math.max(0, Math.min(1, (pz[i] + 1.4) / 2.8));
+        var hue = (i / N + time * 0.02) % 1, rr = pr * (1.35 - dpt * 0.75), alpha = 0.95 - dpt * 0.6;
+        var inReg = active >= 0 && region[i] === active;
+        if (m < 0.5 && eyeGroup[i] === 1) { ctx.fillStyle = grad3(0.2 + 0.6 * ((i * 7) % 13) / 13); }
+        else ctx.fillStyle = grad3(hue < 0.5 ? hue * 2 : 2 - hue * 2);
+        if (active >= 0) {
+          if (inReg) { ctx.fillStyle = REGIONS[active].color; rr *= 1 + (layout.narrow ? 0.35 : 0.7) * hl; alpha = Math.min(1, alpha + 0.4 * hl); cxs += px[i]; cys += py[i]; cn++; }
+          else alpha *= 1 - 0.45 * hl;
+        }
+        ctx.globalAlpha = alpha;
         ctx.fillRect(px[i] - rr, py[i] - rr, rr * 2, rr * 2);
       }
-      // message-passing pulses travelling along graph edges
       ctx.globalAlpha = 1;
+      // pupil glow while the eye is showing
+      if (m < 0.6) {
+        // project the (moving) iris centre with the same transform as the points
+        var icx = gx * (1 - m), icy = gyv * (1 - m), icz = -0.93;
+        var tx = icx * cy - icz * sy, tz = icx * sy + icz * cy, ty = icy * cx - tz * sx; tz = icy * sx + tz * cx;
+        var ff = 4.5 / (4.5 + tz), pcx = ox + tx * scale * ff, pcy = oy + ty * scale * ff;
+        var a0 = (1 - m / 0.6);
+        var pg = ctx.createRadialGradient(pcx, pcy, 0, pcx, pcy, scale * 0.24);
+        pg.addColorStop(0, "rgba(6,10,24," + (0.95 * a0) + ")"); pg.addColorStop(0.7, "rgba(6,10,24," + (0.75 * a0) + ")"); pg.addColorStop(1, "rgba(6,10,24,0)");
+        ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(pcx, pcy, scale * 0.24, 0, PI2); ctx.fill();
+        ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.9 * a0;
+        ctx.drawImage(glow, pcx - scale * 0.1 + scale * 0.06, pcy - scale * 0.1 - scale * 0.06, scale * 0.12, scale * 0.12); // catch-light
+        ctx.globalAlpha = 1;
+      }
+      // message-passing pulses (inside the active region when one is lit)
       for (var q2 = 0; q2 < pulses.length; q2++) {
-        var pu = pulses[q2]; pu.t += 0.035;
+        var pu = pulses[q2]; pu.t += 0.04;
         var to = nb[pu.i * K + pu.k];
-        if (to < 0) { pu.i = (R() * N) | 0; pu.t = 0; continue; }
-        if (pu.t >= 1) { pu.i = to; pu.k = (R() * K) | 0; pu.t = 0; continue; }
-        var gx = px[pu.i] + (px[to] - px[pu.i]) * pu.t, gy = py[pu.i] + (py[to] - py[pu.i]) * pu.t;
-        ctx.drawImage(glow, gx - 10, gy - 10, 20, 20);
+        if (to < 0 || pu.t >= 1) {
+          if (to >= 0 && pu.t >= 1 && (active < 0 || region[to] === active)) pu.i = to;
+          else if (active >= 0) { var tries = 0; do { pu.i = (R() * N) | 0; } while (region[pu.i] !== active && ++tries < 40); }
+          else pu.i = (R() * N) | 0;
+          pu.k = (R() * K) | 0; pu.t = 0; continue;
+        }
+        var gxp = px[pu.i] + (px[to] - px[pu.i]) * pu.t, gyp = py[pu.i] + (py[to] - py[pu.i]) * pu.t;
+        ctx.drawImage(glow, gxp - glowS / 2, gyp - glowS / 2, glowS, glowS);
       }
       ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+      // region callout (desktop only): label sits above or below the brain, joined by a leader line
+      if (active >= 0 && cn > 4 && !layout.narrow && hl > 0.05) {
+        var rcx = cxs / cn, rcy = cys / cn, below = rcy > oy + scale * 0.15;
+        var ey = below ? oy + scale * 1.05 : oy - scale * 1.1, ex = rcx;
+        ctx.font = "600 14px Inter, sans-serif";
+        var tw = Math.max(ctx.measureText(REGIONS[active].name).width, REGIONS[active].role.length * 8);
+        var tx0 = Math.max(16 + tw / 2, Math.min(W - 16 - tw / 2, ex));
+        ctx.globalAlpha = hl;
+        ctx.strokeStyle = hexA(REGIONS[active].color, 0.8); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(rcx, rcy); ctx.lineTo(ex, ey + (below ? -6 : 6)); ctx.stroke();
+        ctx.fillStyle = REGIONS[active].color; ctx.beginPath(); ctx.arc(rcx, rcy, 3.5, 0, PI2); ctx.fill();
+        ctx.textAlign = "center"; ctx.fillStyle = "#e9edff";
+        var ty0 = below ? ey + 10 : ey - 22;
+        ctx.fillText(REGIONS[active].name, tx0, ty0);
+        ctx.font = "600 11.5px Inter, sans-serif"; ctx.fillStyle = hexA(REGIONS[active].color, 1);
+        ctx.fillText(REGIONS[active].role.toUpperCase(), tx0, ty0 + 17);
+        ctx.textAlign = "left"; ctx.globalAlpha = 1;
+      }
     }
     window.addEventListener("resize", function () { lastW = 0; });
-    animateWhenVisible(cv, draw, { fps: small ? 30 : 0, still: 1 });
+    animateWhenVisible(cv, draw, { fps: small ? 30 : 0, still: EYE_HOLD + MORPH + REG_T * 3 + 1.2 });
   }
 
   /* ------------------------------------------------------------------ */
