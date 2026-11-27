@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>VRI Lab · Visual Reasoning Intelligence Lab</title>
-  <meta name="description" content="VRI Lab: a collaborative group researching world models, vision-language-action models, multimodal LLMs and foundation models, including time series.">
+  <meta name="description" content="VRI Lab: from models to brain. A cross-institution group building visual AI that predicts, grounds, adapts and acts.">
   <meta name="keywords" content="VRI Lab, Visual Reasoning Intelligence Lab, computer vision, machine learning, world models, multimodal large language models, vision-language-action, foundation models">
   <meta name="theme-color" content="#060a18">
   <link rel="canonical" href="https://vri-lab.github.io/VRI/">
@@ -20,7 +20,7 @@
   <meta property="og:image:alt" content="VRI Lab: Machines that see, reason and act, beside a glowing point-cloud brain">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="VRI Lab · Visual Reasoning Intelligence Lab">
-  <meta name="twitter:description" content="Machines that see, reason and act.">
+  <meta name="twitter:description" content="From models to brain: visual AI that predicts, grounds, adapts and acts.">
   <meta name="twitter:image" content="https://vri-lab.github.io/VRI/assets/img/og.jpg">
   <meta name="twitter:image:alt" content="VRI Lab: Machines that see, reason and act, beside a glowing point-cloud brain">
 
@@ -40,7 +40,8 @@
     "alternateName": "VRI Lab",
     "url": "https://vri-lab.github.io/VRI/",
     "logo": "https://vri-lab.github.io/VRI/assets/img/logo.png",
-    "description": "A collaborative research group advancing visual reasoning and foundation AI models.",
+    "description": "VRI Lab: from models to brain. A cross-institution group building visual AI that predicts, grounds, adapts and acts.",
+    "slogan": "From models to brain",
     "email": "vrilab.research@gmail.com",
     "sameAs": ["https://github.com/VRI-Lab"],
     "knowsAbout": ["Computer vision", "Machine learning", "World models", "Multimodal large language models", "Vision-language-action models", "Foundation models"],
@@ -90,14 +91,19 @@
           <a class="btn btn-primary" href="#philosophy">Our philosophy</a>
           <a class="btn btn-ghost" href="#people">Meet the team</a>
         </div>
+        <p class="sr-only">Animation: an eye, representing perception, morphs into a brain whose regions light up in turn for each of our principles.</p>
         <p class="shape-label" aria-hidden="true"><span class="sdot" id="shapeDot"></span><span id="shapeName">Perception · the eye</span></p>
       </div>
       <a class="scroll-cue" href="#mission" aria-label="Scroll down"><span></span></a>
+      <button class="motion-toggle" id="motionToggle" type="button" aria-pressed="false" aria-label="Pause animations">
+        <svg class="i-pause" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+        <svg class="i-play" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+      </button>
     </section>
 
     <!-- ============ MISSION ============ -->
     <section class="mission" id="mission" aria-labelledby="missionTitle">
-      <p class="kicker" id="missionTitle">Our mission</p>
+      <h2 class="kicker" id="missionTitle">Our mission</h2>
       <blockquote class="mission-text reveal" id="missionText"></blockquote>
     </section>
 
@@ -113,16 +119,24 @@
         <h2>People</h2>
         <ul>
           <li>Lars Petersson, Senior Principal Research Scientist, CSIRO (Foundation AI models)</li>
-          <li>Ali Zia, Research Fellow, La Trobe University (World models)</li>
-          <li>Ali Cheraghian, Senior AI/ML Scientist, Macquarie University (World models)</li>
+          <li>Ali Zia, Research Fellow, La Trobe University (World models · Topological deep learning)</li>
+          <li>Ali Cheraghian, Senior AI/ML Scientist, Macquarie University (World models · Vision-language models)</li>
           <li>Shafin Rahman, Associate Professor, North South University (Unified large language models)</li>
           <li>Hamidreza Dastmalchi, PhD Candidate, York University (Language world action models)</li>
-          <li>Abdelwahed Khamis, Research Scientist, CSIRO (Multimodal large language models)</li>
+          <li>Abdelwahed Khamis, Research Scientist, CSIRO (Multimodal LLMs · Radar perception)</li>
         </ul>
         <h2>Mission</h2>
         <p>From models to brain: we build visual AI that predicts, grounds, adapts and acts, closing the gap between today's models and the intelligence of the brain.</p>
         <h2>Philosophy</h2>
-        <p>Prediction · Grounding · Action · Shared machinery · Specialised senses · Adaptation</p>
+        <p>Today's models are powerful but narrow. The brain shows a different design is possible, and we treat its principles as engineering targets:</p>
+        <ul>
+          <li>Prediction: world models that predict what happens next (hippocampus, cerebellum)</li>
+          <li>Grounding: multimodal models that bind language to what they see (association cortex)</li>
+          <li>Action: models that turn instructions into plans and movement (language, prefrontal and motor pathways)</li>
+          <li>Shared machinery: unified models where perceiving and imagining share circuits (visual cortex)</li>
+          <li>Specialised senses: foundation models for radar, spectral and time-series data (sensory cortices)</li>
+          <li>Adaptation: learning on the fly when conditions shift, without labels</li>
+        </ul>
         <h2>Selected work</h2>
         <ul>
           <li><a href="https://arxiv.org/abs/2610.24783">ATLAS: Learning to Adapt LVLM Attention for Reasoning Video Segmentation</a> (WACV 2027)</li>
@@ -140,7 +154,7 @@
     <section class="section" id="philosophy">
       <div class="section-head reveal">
         <p class="kicker">Philosophy</p>
-        <h2>From models to <em>brain</em>.</h2>
+        <h2>Six principles from the <em>brain</em>.</h2>
         <p class="intro">Today's models are powerful but narrow: they recognise without understanding, answer without checking, and break when the world changes. The brain shows a different design is possible, one that predicts before acting, grounds belief in evidence, adapts without supervision, and uses specialised senses that feed shared reasoning. We don't copy biology. We treat these principles as engineering targets, and each research direction closes one gap between how models work today and how brains work.</p>
       </div>
       <div class="topics" id="principles"></div>
@@ -154,7 +168,7 @@
         <h2>The team</h2>
       </div>
       <div class="people" id="peopleGrid"></div>
-      <p class="orgs reveal" aria-label="Member institutions">
+      <p class="orgs reveal">
         <span>CSIRO</span><span>La Trobe University</span><span>Macquarie University</span><span>North South University</span><span>York University</span>
       </p>
     </section>
@@ -196,7 +210,6 @@
     <section class="join" id="join">
       <canvas id="joinCanvas" aria-hidden="true"></canvas>
       <div class="join-inner reveal">
-        <img src="assets/img/logo.png" alt="VRI Lab logo" width="96" height="96">
         <h2>Build the future of visual reasoning with us.</h2>
         <p>We welcome students, collaborators and partners.</p>
         <div class="hero-cta center">
@@ -209,7 +222,6 @@
             Email us
           </a>
         </div>
-        <p class="soon">Discord community launching soon.</p>
       </div>
     </section>
   </main>

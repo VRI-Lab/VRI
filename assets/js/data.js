@@ -12,14 +12,14 @@ window.VRI = {
   principles: [
     {
       title: "Prediction",
-      text: "World models that imagine consequences, as the hippocampus and cerebellum do.",
+      text: "World models that predict what happens next, as the hippocampus simulates possible futures and the cerebellum forecasts the results of movement.",
       brain: "Hippocampus · Cerebellum",
       scene: "world",
       color: "#22c3b5"
     },
     {
       title: "Grounding",
-      text: "Multimodal models that check language against what they see, as association cortex does.",
+      text: "Multimodal models that bind language to what they see, as association cortex integrates the senses.",
       brain: "Association cortex",
       scene: "mllm",
       color: "#7b5cff"
@@ -33,8 +33,8 @@ window.VRI = {
     },
     {
       title: "Shared machinery",
-      text: "Unified models where perceiving and imagining use the same circuits.",
-      brain: "Visual cortex, seeing & imagining",
+      text: "Unified models where perceiving and imagining share overlapping circuits.",
+      brain: "Visual cortex · Imagery",
       scene: "unified",
       color: "#b14dff"
     },
@@ -182,7 +182,7 @@ window.VRI = {
       links: { paper: "https://openreview.net/forum?id=QMItTyQW92" }
     },
     {
-      title: "Learning Structurally Consistent Representations for Multi-view Radar Semantic Segmentation",
+      title: "Learning Structurally Consistent Representations for Multi-View Radar Semantic Segmentation",
       short: "HyperRadar",
       venue: "ECCV 2026",
       authors: "A. Zia, M. U. Ramzan, A. Khamis, U. Ali, A. Rehman",
@@ -275,7 +275,7 @@ window.VRI = {
   ],
 
   roadmap: [
-    { when: "Now – 2027", what: "Launch website & Discord. Start the five 2027 topics. First submissions, workshop, tutorial and Kaggle proposals, grant applications." },
+    { when: "Now – 2027", what: "Launch website & Discord. Begin work on our six research directions. First submissions, workshop, tutorial and Kaggle proposals, grant applications." },
     { when: "2028 – 2029", what: "Establish VRI as a non-profit organisation or institute." }
   ],
 

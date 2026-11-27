@@ -24,12 +24,12 @@
     d.style.setProperty("--av", AV_GRADS[i % AV_GRADS.length]);
     if (p.photo) {
       d.classList.add("has-photo");
-      var img = new Image(); img.src = p.photo; img.alt = p.name; img.loading = "lazy";
+      var img = new Image(); img.src = p.photo; img.alt = ""; img.loading = "lazy";
       img.onerror = function () { d.classList.remove("has-photo"); d.textContent = p.initials; };
       d.appendChild(img);
     } else {
       d.textContent = p.initials;
-      d.setAttribute("role", "img"); d.setAttribute("aria-label", p.name);
+      d.setAttribute("aria-hidden", "true");
     }
     return d;
   }
@@ -80,7 +80,7 @@
     var wrap = $("#principles"); if (!wrap) return;
     D.principles.forEach(function (t, i) {
       var card = el("article", "topic reveal");
-      card.style.setProperty("--c", t.color);
+      card.style.setProperty("--c", lerpColor(t.color, "#ffffff", 0.28));
       card.style.transitionDelay = (i % 3) * 60 + "ms";
       var cv = el("canvas"); cv.setAttribute("aria-hidden", "true"); cv.dataset.scene = t.scene; cv.dataset.color = t.color;
       card.appendChild(cv);
@@ -139,6 +139,7 @@
         cover.classList.add("is-figure");
         var img = new Image(); img.src = p.img; img.alt = "Figure from " + p.short; img.loading = "lazy"; img.decoding = "async";
         cover.appendChild(img);
+        cover.appendChild(el("span", "gen-title", esc(p.short)));
       } else {
         cover.classList.add("is-generated");
         var cv = el("canvas"); cv.setAttribute("aria-hidden", "true"); cv.dataset.seed = p.seed || i;
@@ -211,6 +212,10 @@
     ul.addEventListener("click", function (e) { if (e.target.closest("a")) setOpen(false); });
     document.addEventListener("click", function (e) { if (ul.classList.contains("open") && !nav.contains(e.target)) setOpen(false); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && ul.classList.contains("open")) { setOpen(false); btn.focus(); } });
+    nav.addEventListener("focusout", function (e) { if (ul.classList.contains("open") && e.relatedTarget && !nav.contains(e.relatedTarget)) setOpen(false); });
+    var mq = window.matchMedia("(min-width: 761px)");
+    var onMq = function () { if (mq.matches) setOpen(false); };
+    if (mq.addEventListener) mq.addEventListener("change", onMq); else if (mq.addListener) mq.addListener(onMq);
     var links = Array.prototype.slice.call(ul.querySelectorAll('a[href^="#"]'));
     if ("IntersectionObserver" in window) {
       var io = new IntersectionObserver(function (entries) {
@@ -221,6 +226,17 @@
       }, { rootMargin: "-45% 0px -50% 0px" });
       ["top", "philosophy", "people", "work", "plan", "join"].forEach(function (id) { var s = document.getElementById(id); if (s) io.observe(s); });
     }
+  }
+
+  function setupPause() {
+    var b = $("#motionToggle"); if (!b) return;
+    if (reduceMotion) { b.hidden = true; return; }
+    b.addEventListener("click", function () {
+      var p = !MOTION.paused; setMotionPaused(p);
+      b.setAttribute("aria-pressed", p ? "true" : "false");
+      b.setAttribute("aria-label", p ? "Play animations" : "Pause animations");
+      b.classList.toggle("is-paused", p);
+    });
   }
 
   function setupReveal() {
@@ -260,25 +276,38 @@
   function grad3(t) { return LUT[Math.max(0, Math.min(63, (t * 63) | 0))]; }
 
   // Runs a draw loop only while the canvas is on screen and the tab is visible.
+  // Global motion control (pause button) shared by every animated canvas.
+  var MOTION = { paused: false, loops: [] };
+  function setMotionPaused(p) {
+    MOTION.paused = p;
+    document.documentElement.classList.toggle("motion-paused", p);
+    MOTION.loops.forEach(function (l) { if (p) l.stop(); else l.start(); });
+  }
+
+  // Runs a draw loop only while the canvas is on screen, the tab is visible and motion isn't paused.
+  // Time passed to draw() only advances while running, so a paused animation resumes where it left off.
   function animateWhenVisible(cv, draw, opts) {
     opts = opts || {};
     watchSize(cv);
-    var running = false, onScreen = false, raf = 0, t0 = performance.now(), last = 0;
+    var running = false, onScreen = false, raf = 0, last = 0, prev = 0, elapsed = opts.start || 0;
     var minGap = opts.fps ? 1000 / opts.fps - 2 : 0;
     var loop = function (t) {
       if (!running) return;
       raf = requestAnimationFrame(loop);
       if (minGap && t - last < minGap) return;
-      last = t; draw((t - t0) / 1000);
+      var dt = prev ? Math.min(0.1, (t - prev) / 1000) : 0;
+      prev = t; last = t; elapsed += dt;
+      draw(elapsed, dt);
     };
-    var start = function () { if (!running && onScreen && !document.hidden) { running = true; raf = requestAnimationFrame(loop); } };
+    var start = function () { if (!running && onScreen && !document.hidden && !MOTION.paused) { running = true; prev = 0; raf = requestAnimationFrame(loop); } };
     var stop = function () { running = false; cancelAnimationFrame(raf); };
     if (reduceMotion) {
-      var still = function () { draw(opts.still || 2.5); };
+      var still = function () { draw(opts.still || 2.5, 0); };
       requestAnimationFrame(still);
       if (ro) new ResizeObserver(function () { requestAnimationFrame(still); }).observe(cv);
       return;
     }
+    MOTION.loops.push({ start: start, stop: stop });
     if (!("IntersectionObserver" in window)) { onScreen = true; start(); return; }
     new IntersectionObserver(function (en) {
       onScreen = en[0].isIntersecting;
@@ -288,13 +317,14 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* HERO: morphing 3D point cloud (cube → sphere → torus → trefoil)     */
+  /* HERO: an eye (perception) that morphs into a brain whose regions     */
+  /* light up in turn, one for each principle in the Philosophy section.  */
   /* ------------------------------------------------------------------ */
   function hero() {
     var cv = $("#heroCanvas"); if (!cv) return;
     var ctx = cv.getContext("2d");
     var small = window.innerWidth < 760;
-    var N = small ? 380 : 820, K = 2;
+    var N = small ? 400 : 820, K = 2;
     var label = $("#shapeName"), labelDot = $("#shapeDot");
     var R = rng(42);
     var inner = $(".hero-inner");
@@ -302,86 +332,94 @@
 
     // Coordinates: x = left/right on screen (anterior is +x for the brain),
     // y = down on screen (so "up" is negative), z = depth (negative = towards viewer).
-    function fit(list) { var out = []; for (var i = 0; i < N; i++) out.push(list[Math.floor(i * list.length / N)]); return out; }
     function fib(n) { var p = [], g = Math.PI * (3 - Math.sqrt(5)); for (var i = 0; i < n; i++) { var y = 1 - (i / (n - 1)) * 2, r = Math.sqrt(1 - y * y), th = g * i; p.push([Math.cos(th) * r, y, Math.sin(th) * r]); } return p; }
-
-    /* ---------- EYE: almond eyelids, iris rings, pupil, eyeball ---------- */
-    function eye() {
-      var p = [];
-      // eyelids: three parallel strands per lid for thickness
-      var nl = Math.round(N * 0.07);
-      for (var lid = -1; lid <= 1; lid += 2) for (var s = 0; s < 3; s++) for (var i = 0; i < nl; i++) {
-        var u = (i / (nl - 1)) * 2 - 1, x = u * 1.55, h = 0.78 + s * 0.07;
-        p.push({ v: [x, lid * h * (1 - u * u) * (1 - 0.12 * u), -1.0 - s * 0.03], g: 2 });
-      }
-      // iris: concentric rings in a shallow dome, pupil left empty
-      var rings = 8;
-      for (var r = 0; r < rings; r++) {
-        var rad = 0.2 + (r / (rings - 1)) * 0.36, cnt = Math.round(14 + rad * 70);
-        for (var k = 0; k < cnt; k++) { var a = (k / cnt) * PI2 + r * 0.3; p.push({ v: [Math.cos(a) * rad, Math.sin(a) * rad, -0.93 + rad * rad * 0.35], g: 1 }); }
-      }
-      // eyeball, only the part visible between the lids
-      fib(Math.round(N * 1.1)).forEach(function (q) {
-        var x = q[0] * 0.98, y = q[1] * 0.98, z = q[2] * 0.98 - 0.02;
-        if (z > -0.2) return;                                   // back half hidden by lids
-        if (x * x + y * y < 0.6 * 0.6 && z < -0.75) return;     // leave room for the iris
-        var lim = 0.78 * (1 - Math.pow(x / 1.55, 2)); if (Math.abs(y) > lim) return;
-        p.push({ v: [x, y, z], g: 0 });
+    // Resample each group to a fixed share of N so small parts (pupil ring, brainstem) never vanish.
+    function compose(groups) {
+      var out = [], used = 0;
+      groups.forEach(function (gr, gi) {
+        var n = gi === groups.length - 1 ? N - used : Math.round(N * gr.share); used += n;
+        for (var i = 0; i < n; i++) out.push({ v: gr.pts[Math.floor(i * gr.pts.length / n)], g: gr.g });
       });
-      return fit(p);
+      return out;
     }
 
-    /* ---------- BRAIN: two folded hemispheres, cerebellum, brainstem ---------- */
+    /* ---------- EYE ---------- */
+    function eye() {
+      var lids = [], iris = [], ball = [];
+      var nl = 60;
+      for (var lid = -1; lid <= 1; lid += 2) for (var s = 0; s < 3; s++) for (var i = 0; i < nl; i++) {
+        var u = (i / (nl - 1)) * 2 - 1, h = 0.78 + s * 0.07;
+        lids.push([u * 1.55, lid * h * (1 - u * u) * (1 - 0.12 * u), -1.0 - s * 0.03]);
+      }
+      for (var r = 0; r < 8; r++) {
+        var rad = 0.2 + (r / 7) * 0.36, cnt = Math.round(14 + rad * 70);
+        for (var k = 0; k < cnt; k++) { var a = (k / cnt) * PI2 + r * 0.3; iris.push([Math.cos(a) * rad, Math.sin(a) * rad, -0.93 + rad * rad * 0.35]); }
+      }
+      fib(2000).forEach(function (q) {
+        var x = q[0] * 0.98, y = q[1] * 0.98, z = q[2] * 0.98 - 0.02;
+        if (z > -0.2) return;
+        if (x * x + y * y < 0.36 && z < -0.75) return;
+        if (Math.abs(y) > 0.78 * (1 - Math.pow(x / 1.55, 2))) return;
+        ball.push([x, y, z]);
+      });
+      return compose([{ pts: lids, g: 2, share: 0.24 }, { pts: iris, g: 1, share: 0.4 }, { pts: ball, g: 0, share: 0.36 }]);
+    }
+
+    /* ---------- BRAIN ---------- */
     function brain() {
-      var p = [];
-      var hemi = fib(Math.round(N * 1.25));
+      var cortex = [], cereb = [], stem = [];
+      var hemi = fib(1300);
       [-1, 1].forEach(function (side) {
         hemi.forEach(function (q) {
-          if (q[2] * side < -0.55) return;                       // open medial wall → longitudinal fissure
+          if (q[2] * side < -0.55) return;
           var th = Math.atan2(q[1], q[0]), ph = Math.acos(Math.max(-1, Math.min(1, q[2])));
-          var fold = 1 + 0.045 * Math.sin(th * 9 + ph * 3) * Math.sin(ph * 7);  // gyri
+          var fold = 1 + 0.045 * Math.sin(th * 9 + ph * 3) * Math.sin(ph * 7);
           var x = q[0] * 1.08 * fold, y = q[1] * 0.8 * fold, z = q[2] * 0.48 * fold + side * 0.5;
-          if (y > 0.42) y = 0.42 + (y - 0.42) * 0.35;           // flatter underside
-          if (x < -0.3 && y > 0.25) y = 0.25 + (y - 0.25) * 0.5;  // tuck the occipital base
-          // lateral (Sylvian) fissure: a thin gap separating the temporal lobe
+          if (y > 0.42) y = 0.42 + (y - 0.42) * 0.35;
+          if (x < -0.3 && y > 0.25) y = 0.25 + (y - 0.25) * 0.5;
           var fis = y - (0.08 - 0.32 * x);
           if (x > -0.35 && x < 0.75 && Math.abs(fis) < 0.035 && Math.abs(z) > 0.75) return;
-          p.push({ v: [x, y, z], g: 0 });
+          cortex.push([x, y, z]);
         });
       });
-      // cerebellum with horizontal folia
-      fib(Math.round(N * 0.32)).forEach(function (q) {
-        var x = -0.72 + q[0] * 0.34, y = 0.55 + q[1] * 0.22 * (1 + 0.08 * Math.sin(q[1] * 26)), z = q[2] * 0.62;
+      fib(360).forEach(function (q) {
         if (q[0] > 0.35 && q[1] < 0) return;
-        p.push({ v: [x, y, z], g: 1 });
+        cereb.push([-0.72 + q[0] * 0.34, 0.55 + q[1] * 0.22 * (1 + 0.08 * Math.sin(q[1] * 26)), q[2] * 0.62]);
       });
-      // brainstem
-      var ns = Math.round(N * 0.06);
-      for (var i = 0; i < ns; i++) {
-        var t = (i / ns), a = (i * 2.4) % PI2;
-        p.push({ v: [-0.28 - t * 0.12 + Math.cos(a) * 0.1, 0.42 + t * 0.55, Math.sin(a) * 0.1], g: 1 });
-      }
-      return fit(p);
+      for (var i = 0; i < 80; i++) { var t = i / 80, a = (i * 2.4) % PI2; stem.push([-0.28 - t * 0.12 + Math.cos(a) * 0.11, 0.42 + t * 0.55, Math.sin(a) * 0.11]); }
+      return compose([{ pts: cortex, g: 0, share: 0.78 }, { pts: cereb, g: 1, share: 0.16 }, { pts: stem, g: 3, share: 0.06 }]);
     }
 
-    // Regions lit in turn: perceive → ground → predict → reason → act.
+    // One region per principle, in the same colours as the Philosophy tiles.
+    function belowFissure(v) { return v[1] > 0.1 - 0.32 * v[0]; }
+    function motorStrip(v) { return Math.abs(v[0] - (0.22 + 0.3 * v[1])) < 0.17 && v[1] < 0.1 && !belowFissure(v); }
     var REGIONS = [
-      { name: "Visual cortex", role: "Perception", color: "#16a3c9", test: function (v, g) { return g === 0 && v[0] < -0.55; } },
-      { name: "Association cortex", role: "Grounding", color: "#7b5cff", test: function (v, g) { return g === 0 && v[0] >= -0.55 && v[0] < 0.1 && v[1] < -0.05; } },
-      { name: "Hippocampus · Cerebellum", role: "Prediction", color: "#22c3b5", test: function (v, g) { return g === 1 ? v[1] < 0.8 : (v[1] > 0.12 && v[0] > -0.45 && v[0] < 0.55 && Math.abs(v[2]) > 0.6); } },
-      { name: "Prefrontal cortex", role: "Reasoning & planning", color: "#b14dff", test: function (v, g) { return g === 0 && v[0] > 0.52; } },
-      { name: "Motor cortex", role: "Action", color: "#3d8bff", test: function (v, g) { return g === 0 && v[0] >= 0.06 && v[0] < 0.5 && v[1] < -0.12; } }
+      { name: "Visual cortex", role: "Specialised senses", color: "#16a3c9", test: function (v, g) { return g === 0 && v[0] < -0.55; } },
+      { name: "Association cortex", role: "Grounding", color: "#7b5cff", test: function (v, g) { return g === 0 && v[0] >= -0.55 && v[0] < 0.12 && v[1] < 0 && !motorStrip(v); } },
+      { name: "Temporal lobe · Cerebellum", short: "Temporal lobe", role: "Prediction", color: "#22c3b5", test: function (v, g) { return g === 1 || (g === 0 && belowFissure(v) && v[0] > -0.5 && v[0] < 0.7); } },
+      { name: "Prefrontal cortex", role: "Adaptation", color: "#2fd39a", test: function (v, g) { return g === 0 && v[0] > 0.55 && !belowFissure(v); } },
+      { name: "Motor cortex", role: "Action", color: "#3d8bff", test: function (v, g) { return g === 0 && motorStrip(v); } },
+      { name: "Visual cortex · Imagery", short: "Visual cortex", role: "Shared machinery", color: "#b14dff", test: function (v, g) { return g === 0 && v[0] < -0.5; } }
     ];
 
     var EYE = eye(), BRAIN = brain();
-    // shuffle the brain so points travel organically between shapes
-    for (var i = N - 1; i > 0; i--) { var j = (R() * (i + 1)) | 0, tmp = BRAIN[i]; BRAIN[i] = BRAIN[j]; BRAIN[j] = tmp; }
-    var region = new Int8Array(N).fill(-1);
-    BRAIN.forEach(function (o, idx) { for (var r = 0; r < REGIONS.length; r++) if (REGIONS[r].test(o.v, o.g)) { region[idx] = r; break; } });
-    var eyeGroup = new Int8Array(N); EYE.forEach(function (o, idx) { eyeGroup[idx] = o.g; });
+    // Pair eye and brain points by position (angle around the centre, then radius) so the morph
+    // flows outward/inward instead of every point crossing the middle.
+    function order(list) {
+      var idx = list.map(function (o, i) { var v = o.v, a = Math.atan2(v[1], v[0]), sector = Math.floor((a + Math.PI) / PI2 * 28); return { i: i, key: sector * 10 + Math.min(9.99, Math.hypot(v[0], v[1]) * 4) }; });
+      idx.sort(function (p, q) { return p.key - q.key; });
+      return idx.map(function (o) { return o.i; });
+    }
+    var oe = order(EYE), ob = order(BRAIN), paired = new Array(N);
+    for (var q = 0; q < N; q++) paired[oe[q]] = BRAIN[ob[q]];
+    BRAIN = paired;
+    var member = REGIONS.map(function (rg) { var a = new Uint8Array(N); BRAIN.forEach(function (o, i) { if (rg.test(o.v, o.g)) a[i] = 1; }); return a; });
+    var eyeGroup = new Int8Array(N); EYE.forEach(function (o, i) { eyeGroup[i] = o.g; });
+    // stagger: points start morphing in a sweep from left to right
+    var delay = new Float32Array(N); EYE.forEach(function (o, i) { delay[i] = 0.3 * (o.v[0] + 1.6) / 3.2; });
 
     function knn(list) {
-      var out = new Int16Array(N * K).fill(-1), dists = [];
+      var out = new Int16Array(N * K).fill(-1), d0 = new Float32Array(N * K);
       for (var i = 0; i < N; i++) {
         var a = list[i].v, b0 = 1e9, b1 = 1e9, i0 = -1, i1 = -1;
         for (var j = 0; j < N; j++) { if (i === j) continue;
@@ -389,10 +427,13 @@
           if (d < 1e-6) continue;
           if (d < b0) { b1 = b0; i1 = i0; b0 = d; i0 = j; } else if (d < b1) { b1 = d; i1 = j; }
         }
-        out[i * K] = i0; out[i * K + 1] = i1; dists.push(b0, b1);
+        out[i * K] = i0; out[i * K + 1] = i1; d0[i * K] = b0; d0[i * K + 1] = b1;
       }
-      var sorted = dists.slice().sort(function (a, b) { return a - b; }), lim = sorted[sorted.length >> 1] * 3;
-      for (var e = 0; e < N * K; e++) if (dists[e] > lim) out[e] = -1;
+      // prune long edges using each group's own median (sparse eyeball keeps its mesh)
+      var groups = {};
+      for (i = 0; i < N; i++) { var g = list[i].g; (groups[g] = groups[g] || []).push(d0[i * K], d0[i * K + 1]); }
+      var lim = {}; Object.keys(groups).forEach(function (g) { var s = groups[g].sort(function (x, y) { return x - y; }); lim[g] = s[s.length >> 1] * 3; });
+      for (var e = 0; e < N * K; e++) if (d0[e] > lim[list[e >> 1].g]) out[e] = -1;
       return out;
     }
     var NB_EYE = knn(EYE), NB_BRAIN = knn(BRAIN);
@@ -408,76 +449,83 @@
 
     var layout = { ox: 0, oy: 0, scale: 1, narrow: false };
     function computeLayout(W, H) {
-      var narrow = W < 1000 || W / H < 1.05;
-      layout.narrow = narrow;
-      if (narrow) {
+      var textRight = inner ? inner.getBoundingClientRect().right : W * 0.45;
+      var room = W - textRight - 40;
+      var side = W >= 760 && room / 3.6 >= 70;
+      layout.narrow = !side;
+      if (side) {
+        layout.scale = Math.max(70, Math.min(H * 0.26, room / 3.6));
+        layout.ox = textRight + 20 + room / 2; layout.oy = Math.max(H * 0.48, 72 + layout.scale * 1.3);
+        cv.style.opacity = "";
+      } else {
         var eb = inner && inner.querySelector(".eyebrow");
         var top = inner ? inner.offsetTop + (eb ? eb.offsetTop : 0) : H * 0.5, avail = top - 72;
-        if (avail < 90) { layout.scale = W * 0.24; layout.ox = W * 0.55; layout.oy = H * 0.36; cv.style.opacity = "0.32"; }
+        if (avail < 90) { layout.scale = W * 0.22; layout.ox = W * 0.6; layout.oy = H * 0.36; cv.style.opacity = "0.32"; }
         else { layout.scale = Math.min(W * 0.27, avail / 2.4); layout.ox = W * 0.5; layout.oy = 72 + avail / 2; cv.style.opacity = ""; }
-      } else {
-        var textRight = inner ? inner.getBoundingClientRect().right : W * 0.45;
-        var room = W - textRight - 40;
-        layout.scale = Math.max(90, Math.min(H * 0.26, room / 3.6));
-        layout.ox = textRight + 20 + room / 2; layout.oy = H * 0.48;
-        cv.style.opacity = "";
       }
     }
     var lastW = 0, lastH = 0;
 
-    // Timeline: eye (hold) → morph → brain with five regions → morph → loop
-    var EYE_HOLD = 4.6, MORPH = 2.4, REG_T = 2.5, BRAIN_HOLD = REG_T * REGIONS.length;
+    // Timeline: eye → morph → six brain regions → morph back
+    var EYE_HOLD = 4.6, MORPH = 2.6, REG_T = 2.3, BRAIN_HOLD = REG_T * REGIONS.length;
     var CYCLE = EYE_HOLD + MORPH + BRAIN_HOLD + MORPH;
     var px = new Float32Array(N), py = new Float32Array(N), pz = new Float32Array(N);
     var BUCKETS = 5, lastLabel = "";
-    function ease(x) { return x * x * (3 - 2 * x); }
+    function ease(x) { return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); }
     function hexA(hex, a) { var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+    function blinkAt(t) { return Math.max(0, 1 - Math.abs(t - 1.8) / 0.13, 1 - Math.abs(t - 3.9) / 0.13); }
 
-    function draw(time) {
-      var sz = fitCanvas(cv, 1.5), W = sz.w, H = sz.h;
+    function draw(time, dt) {
+      dt = dt || 0;
+      var sz = fitCanvas(cv, 1.25), W = sz.w, H = sz.h;
       if (W !== lastW || H !== lastH) { computeLayout(W, H); lastW = W; lastH = H; }
       ctx.setTransform(sz.dpr, 0, 0, sz.dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
 
-      // m: 0 = eye, 1 = brain
-      var ph = time % CYCLE, m, active = -1, regLocal = 0;
-      if (ph < EYE_HOLD) m = 0;
-      else if (ph < EYE_HOLD + MORPH) m = ease((ph - EYE_HOLD) / MORPH);
-      else if (ph < EYE_HOLD + MORPH + BRAIN_HOLD) { m = 1; var bt = ph - EYE_HOLD - MORPH; active = Math.floor(bt / REG_T); regLocal = (bt % REG_T) / REG_T; }
-      else m = 1 - ease((ph - EYE_HOLD - MORPH - BRAIN_HOLD) / MORPH);
-      var hl = active >= 0 ? Math.min(1, regLocal * 5, (1 - regLocal) * 5) : 0; // highlight fade in/out
+      // raw: 0 = eye, 1 = brain (before per-point stagger)
+      var ph = time % CYCLE, raw, active = -1, regLocal = 0, dir = 1;
+      if (ph < EYE_HOLD) raw = 0;
+      else if (ph < EYE_HOLD + MORPH) raw = (ph - EYE_HOLD) / MORPH;
+      else if (ph < EYE_HOLD + MORPH + BRAIN_HOLD) { raw = 1; var bt = ph - EYE_HOLD - MORPH; active = Math.min(REGIONS.length - 1, Math.floor(bt / REG_T)); regLocal = (bt - active * REG_T) / REG_T; }
+      else { raw = 1 - (ph - EYE_HOLD - MORPH - BRAIN_HOLD) / MORPH; dir = -1; }
+      var m = ease(raw); // global progress, used for camera and labels
+      var hl = active >= 0 ? Math.min(1, regLocal * 5, (1 - regLocal) * 5) : 0;
+      var blink = raw === 0 ? blinkAt(ph) : 0;
+      var morphing = raw > 0 && raw < 1;
 
-      var txt = m < 0.5 ? "Perception · the eye" : (active >= 0 ? REGIONS[active].role + " · " + REGIONS[active].name : "Reasoning · the brain");
-      if (txt !== lastLabel && label) {
-        label.textContent = txt; lastLabel = txt;
-        if (labelDot) labelDot.style.background = m < 0.5 ? "#22c3b5" : (active >= 0 ? REGIONS[active].color : "#7b5cff");
-      }
+      var txt, col;
+      if (m < 0.5) { txt = "Perception · " + (W < 480 ? "Eye" : "the eye"); col = "#22c3b5"; }
+      else if (active >= 0) { var rg = REGIONS[active]; txt = rg.role + " · " + (W < 480 && rg.short ? rg.short : rg.name); col = rg.color; }
+      else { txt = "From models to brain"; col = "#7b5cff"; }
+      if (txt !== lastLabel && label) { label.textContent = txt; lastLabel = txt; if (labelDot) { labelDot.style.background = col; labelDot.style.color = col; } }
 
-      mouse.x += (mouse.tx - mouse.x) * 0.05; mouse.y += (mouse.ty - mouse.y) * 0.05;
-      // eye faces the viewer; the brain is seen from the side, swaying to show depth
+      var ke = dt ? 1 - Math.exp(-dt * 3) : 0.05;
+      mouse.x += (mouse.tx - mouse.x) * ke; mouse.y += (mouse.ty - mouse.y) * ke;
       var yawEye = Math.sin(time * 0.5) * 0.28, yawBrain = -0.35 + Math.sin(time * 0.35) * 0.45;
       var ry = yawEye + (yawBrain - yawEye) * m + mouse.x * 0.6;
       var rx = (Math.sin(time * 0.4) * 0.06) * (1 - m) + (-0.18 + Math.sin(time * 0.3) * 0.06) * m + mouse.y * 0.4;
       var cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
-      var scale = layout.scale * (0.68 + 0.27 * m), ox = layout.ox, oy = layout.oy;
-      // the eye looks around
+      var scale = layout.scale * (0.62 + 0.36 * m), ox = layout.ox, oy = layout.oy;
       var gx = Math.sin(time * 0.9) * 0.16 + Math.sin(time * 2.3) * 0.03, gyv = Math.sin(time * 0.6 + 1) * 0.07;
-      var blink = Math.max(0, 1 - Math.abs(((time % 5.2) - 4.9) / 0.12)); // brief blink near the end of each 5.2 s
       for (var i = 0; i < N; i++) {
+        // staggered per-point progress: a sweep across the shape
+        var d = dir > 0 ? delay[i] : 0.3 - delay[i];
+        var mi = morphing ? ease((raw - d) / 0.7) : raw;
         var A = EYE[i].v, B = BRAIN[i].v, g = eyeGroup[i];
         var ax = A[0], ay = A[1], az = A[2];
         if (g === 1) { ax += gx; ay += gyv; }
-        else if (g === 2) ay *= (1 - blink * 0.85);
-        var x0 = ax + (B[0] - ax) * m, y0 = ay + (B[1] - ay) * m, z0 = az + (B[2] - az) * m;
+        if (blink) ay *= (1 - blink * (g === 2 ? 0.85 : 0.92));
+        var x0 = ax + (B[0] - ax) * mi, y0 = ay + (B[1] - ay) * mi, z0 = az + (B[2] - az) * mi;
         var x = x0 * cy - z0 * sy, z = x0 * sy + z0 * cy, y = y0 * cx - z * sx; z = y0 * sx + z * cx;
         var f = 4.5 / (4.5 + z); px[i] = ox + x * scale * f; py[i] = oy + y * scale * f; pz[i] = z;
       }
 
       var nb = m < 0.5 ? NB_EYE : NB_BRAIN;
-      var edgeAlpha = 0.32 * (1 - Math.sin(m * Math.PI) * 0.8);
+      // edges fade out during the morph so the outline never turns into a hairball
+      var edgeAlpha = 0.32 * Math.max(0, 1 - Math.min(m, 1 - m) / 0.15);
       ctx.lineWidth = 1;
       ctx.globalCompositeOperation = "lighter";
-      for (var bk = 0; bk < BUCKETS; bk++) {
+      if (edgeAlpha > 0.01) for (var bk = 0; bk < BUCKETS; bk++) {
         ctx.beginPath();
         var lo = -1.6 + bk * (3.2 / BUCKETS), hi = lo + 3.2 / BUCKETS;
         for (i = 0; i < N; i++) {
@@ -487,52 +535,51 @@
         ctx.strokeStyle = "rgba(110,160,255," + (edgeAlpha * (1 - (bk / (BUCKETS - 1)) * 0.7) * (active >= 0 ? 0.75 : 1)).toFixed(3) + ")";
         ctx.stroke();
       }
-      // highlighted region edges
-      if (active >= 0 && hl > 0) {
+      var mem = active >= 0 ? member[active] : null;
+      if (mem && hl > 0) {
         ctx.beginPath();
-        for (i = 0; i < N; i++) { if (region[i] !== active) continue;
-          for (k = 0; k < K; k++) { jn = NB_BRAIN[i * K + k]; if (jn < 0 || region[jn] !== active) continue; ctx.moveTo(px[i], py[i]); ctx.lineTo(px[jn], py[jn]); } }
+        for (i = 0; i < N; i++) { if (!mem[i] || pz[i] > 0.25) continue;
+          for (k = 0; k < K; k++) { jn = NB_BRAIN[i * K + k]; if (jn < 0 || !mem[jn]) continue; ctx.moveTo(px[i], py[i]); ctx.lineTo(px[jn], py[jn]); } }
         ctx.strokeStyle = hexA(REGIONS[active].color, (0.75 * hl).toFixed(3)); ctx.lineWidth = 1.3; ctx.stroke(); ctx.lineWidth = 1;
       }
-      // points
       var pr = Math.max(1.1, Math.min(2, scale / 70));
       var glowS = Math.max(9, Math.min(20, scale * 0.13));
       var cxs = 0, cys = 0, cn = 0;
       for (i = 0; i < N; i++) {
         var dpt = Math.max(0, Math.min(1, (pz[i] + 1.4) / 2.8));
         var hue = (i / N + time * 0.02) % 1, rr = pr * (1.35 - dpt * 0.75), alpha = 0.95 - dpt * 0.6;
-        var inReg = active >= 0 && region[i] === active;
-        if (m < 0.5 && eyeGroup[i] === 1) { ctx.fillStyle = grad3(0.2 + 0.6 * ((i * 7) % 13) / 13); }
+        if (m < 0.5 && eyeGroup[i] === 1) ctx.fillStyle = grad3(0.2 + 0.6 * ((i * 7) % 13) / 13);
         else ctx.fillStyle = grad3(hue < 0.5 ? hue * 2 : 2 - hue * 2);
-        if (active >= 0) {
-          if (inReg) { ctx.fillStyle = REGIONS[active].color; rr *= 1 + (layout.narrow ? 0.35 : 0.7) * hl; alpha = Math.min(1, alpha + 0.4 * hl); cxs += px[i]; cys += py[i]; cn++; }
+        if (mem) {
+          var near = pz[i] < 0.25;
+          if (mem[i] && near) { ctx.fillStyle = REGIONS[active].color; rr *= 1 + (layout.narrow ? 0.35 : 0.7) * hl; alpha = Math.min(1, alpha + 0.4 * hl); cxs += px[i]; cys += py[i]; cn++; }
           else alpha *= 1 - 0.45 * hl;
         }
+        if (blink && m < 0.5 && eyeGroup[i] !== 2) alpha *= 1 - blink * 0.8;
         ctx.globalAlpha = alpha;
         ctx.fillRect(px[i] - rr, py[i] - rr, rr * 2, rr * 2);
       }
       ctx.globalAlpha = 1;
-      // pupil glow while the eye is showing
-      if (m < 0.6) {
-        // project the (moving) iris centre with the same transform as the points
-        var icx = gx * (1 - m), icy = gyv * (1 - m), icz = -0.93;
+      // pupil: a dark disc with a catch-light, only while the eye is clearly an eye
+      if (m < 0.25) {
+        var a0 = (1 - m / 0.25) * (1 - blink * 0.9);
+        var icx = gx, icy = gyv * (1 - blink), icz = -0.93;
         var tx = icx * cy - icz * sy, tz = icx * sy + icz * cy, ty = icy * cx - tz * sx; tz = icy * sx + tz * cx;
         var ff = 4.5 / (4.5 + tz), pcx = ox + tx * scale * ff, pcy = oy + ty * scale * ff;
-        var a0 = (1 - m / 0.6);
         var pg = ctx.createRadialGradient(pcx, pcy, 0, pcx, pcy, scale * 0.24);
         pg.addColorStop(0, "rgba(6,10,24," + (0.95 * a0) + ")"); pg.addColorStop(0.7, "rgba(6,10,24," + (0.75 * a0) + ")"); pg.addColorStop(1, "rgba(6,10,24,0)");
         ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(pcx, pcy, scale * 0.24, 0, PI2); ctx.fill();
         ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.9 * a0;
-        ctx.drawImage(glow, pcx - scale * 0.1 + scale * 0.06, pcy - scale * 0.1 - scale * 0.06, scale * 0.12, scale * 0.12); // catch-light
+        ctx.drawImage(glow, pcx - scale * 0.04, pcy - scale * 0.16, scale * 0.12, scale * 0.12);
         ctx.globalAlpha = 1;
       }
-      // message-passing pulses (inside the active region when one is lit)
-      for (var q2 = 0; q2 < pulses.length; q2++) {
-        var pu = pulses[q2]; pu.t += 0.04;
+      // message-passing pulses; speed is time-based so it's the same at 30, 60 or 120 fps
+      if (!morphing) for (var q2 = 0; q2 < pulses.length; q2++) {
+        var pu = pulses[q2]; pu.t += (dt || 0.016) * 2.4;
         var to = nb[pu.i * K + pu.k];
         if (to < 0 || pu.t >= 1) {
-          if (to >= 0 && pu.t >= 1 && (active < 0 || region[to] === active)) pu.i = to;
-          else if (active >= 0) { var tries = 0; do { pu.i = (R() * N) | 0; } while (region[pu.i] !== active && ++tries < 40); }
+          if (to >= 0 && pu.t >= 1 && (!mem || mem[to])) pu.i = to;
+          else if (mem) { var tries = 0; do { pu.i = (R() * N) | 0; } while ((!mem[pu.i] || pz[pu.i] > 0.25) && ++tries < 40); }
           else pu.i = (R() * N) | 0;
           pu.k = (R() * K) | 0; pu.t = 0; continue;
         }
@@ -540,27 +587,27 @@
         ctx.drawImage(glow, gxp - glowS / 2, gyp - glowS / 2, glowS, glowS);
       }
       ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
-      // region callout (desktop only): label sits above or below the brain, joined by a leader line
-      if (active >= 0 && cn > 4 && !layout.narrow && hl > 0.05) {
+      // region callout (side layout only): label above or below the brain, joined by a leader line
+      if (mem && cn > 4 && !layout.narrow && hl > 0.05) {
         var rcx = cxs / cn, rcy = cys / cn, below = rcy > oy + scale * 0.15;
         var ey = below ? oy + scale * 1.05 : oy - scale * 1.1, ex = rcx;
         ctx.font = "600 14px Inter, sans-serif";
-        var tw = Math.max(ctx.measureText(REGIONS[active].name).width, REGIONS[active].role.length * 8);
+        var tw = Math.max(ctx.measureText(REGIONS[active].name).width, REGIONS[active].role.length * 9);
         var tx0 = Math.max(16 + tw / 2, Math.min(W - 16 - tw / 2, ex));
         ctx.globalAlpha = hl;
-        ctx.strokeStyle = hexA(REGIONS[active].color, 0.8); ctx.lineWidth = 1;
+        ctx.strokeStyle = hexA(REGIONS[active].color, 0.85); ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(rcx, rcy); ctx.lineTo(ex, ey + (below ? -6 : 6)); ctx.stroke();
         ctx.fillStyle = REGIONS[active].color; ctx.beginPath(); ctx.arc(rcx, rcy, 3.5, 0, PI2); ctx.fill();
         ctx.textAlign = "center"; ctx.fillStyle = "#e9edff";
-        var ty0 = below ? ey + 10 : ey - 22;
+        var ty0 = below ? ey + 10 : ey - 24;
         ctx.fillText(REGIONS[active].name, tx0, ty0);
-        ctx.font = "600 11.5px Inter, sans-serif"; ctx.fillStyle = hexA(REGIONS[active].color, 1);
-        ctx.fillText(REGIONS[active].role.toUpperCase(), tx0, ty0 + 17);
+        ctx.font = "600 12.5px Inter, sans-serif"; ctx.fillStyle = hexA(REGIONS[active].color, 1);
+        ctx.fillText(REGIONS[active].role.toUpperCase(), tx0, ty0 + 18);
         ctx.textAlign = "left"; ctx.globalAlpha = 1;
       }
     }
     window.addEventListener("resize", function () { lastW = 0; });
-    animateWhenVisible(cv, draw, { fps: small ? 30 : 0, still: EYE_HOLD + MORPH + REG_T * 3 + 1.2 });
+    animateWhenVisible(cv, draw, { fps: small ? 30 : 0, still: EYE_HOLD + MORPH + REG_T * 3 + 1.1 });
   }
 
   /* ------------------------------------------------------------------ */
@@ -575,12 +622,12 @@
       var hz = H * 0.3;
       for (var i = -14; i <= 14; i++) { ctx.beginPath(); ctx.moveTo(W / 2 + i * u * 2.2, hz); ctx.lineTo(W / 2 + i * W * 0.14, H); ctx.stroke(); }
       for (var j = 0; j < 14; j++) { var yy = hz + Math.pow(((j + (t * 0.6) % 1) / 14), 2) * (H - hz); ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); }
-      var path = function (s) { return [W * 0.48 + Math.sin(s * 0.9) * W * 0.19 + Math.sin(s * 2.1) * W * 0.04, H * 0.56 + Math.cos(s * 0.7) * H * 0.12]; };
+      var path = function (s) { return [W * 0.42 + Math.sin(s * 0.9) * W * 0.14 + Math.sin(s * 2.1) * W * 0.03, H * 0.6 + Math.cos(s * 0.7) * H * 0.1]; };
       ctx.lineWidth = Math.max(2, u * 0.45); ctx.lineCap = "round";
       for (var k = 0; k < 40; k++) { var p0 = path(t - k * 0.04), p1 = path(t - (k + 1) * 0.04); ctx.strokeStyle = "rgba(34,195,181," + (0.9 - k / 44) + ")"; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke(); }
       var cur = path(t), dir = path(t + 0.05);
       var ang = Math.atan2(dir[1] - cur[1], dir[0] - cur[0]);
-      var stepLen = Math.min(u * 2.2, H * 0.045, Math.min(W, H) * 0.015);
+      var stepLen = Math.min(u * 3.4, Math.min(W, H) * 0.032), ends = [];
       for (var r = 0; r < 7; r++) {
         var a = ang + (r - 3) * 0.26, x = cur[0], y = cur[1];
         ctx.setLineDash([u * 0.7, u]); ctx.lineWidth = Math.max(1.4, u * 0.22);
@@ -589,6 +636,7 @@
         for (var s = 1; s <= 12; s++) { a += Math.sin(t * 1.3 + r * 1.7 + s * 0.4) * 0.08; x += Math.cos(a) * stepLen; y += Math.sin(a) * stepLen; ctx.lineTo(x, y); }
         ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle = r === 3 ? "#fff" : "rgba(177,77,255,.85)"; ctx.beginPath(); ctx.arc(x, y, r === 3 ? u * 0.7 : u * 0.45, 0, 6.283); ctx.fill();
+        if (r === 1 || r === 3 || r === 5) ends.push([x, y]);
       }
       // imagined future frames (only where there is room)
       if (W < 520 || H < 220) { drawAgent(); return; }
@@ -603,6 +651,7 @@
         ctx.fillStyle = "rgba(34,195,181," + (0.45 + f * 0.2) + ")";
         var bx = fx + 6 + ((t * fw * 0.3 + f * fw * 0.25) % (fw - 18)); ctx.beginPath(); ctx.arc(bx + 6, fy + fh * 0.6, fw * 0.07, 0, 6.283); ctx.fill();
         ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillText("t+" + (f + 1), fx, fy + fh + fw * 0.2);
+        if (ends[f]) { ctx.strokeStyle = "rgba(154,120,255,.22)"; ctx.setLineDash([2, 5]); ctx.beginPath(); ctx.moveTo(ends[f][0], ends[f][1]); ctx.lineTo(fx + fw / 2, fy + fh); ctx.stroke(); ctx.setLineDash([]); }
       }
       drawAgent();
       function drawAgent() {
@@ -655,7 +704,7 @@
     mllm: function (ctx, W, H, t) {
       ctx.fillStyle = "#0b1230"; ctx.fillRect(0, 0, W, H);
       var n = 4, cell = H * 0.1, gx = W * 0.06, gy = H * 0.08;
-      var tok = Math.max(17, H * 0.085), seqX0 = W * 0.06, seqY = H * 0.6;
+      var tok = Math.max(19, H * 0.085), seqX0 = W * 0.06, seqY = H * 0.6;
       var cycle = (t * 0.3) % 1.25;
       var lx = W * 0.66, ly = H * 0.08, lw = W * 0.28, lh = H * 0.36;
       var tokPos = [];
@@ -672,7 +721,7 @@
       ctx.globalAlpha = 1;
       // text tokens after the image tokens
       var words = ["what", "is", "it", "doing", "?"];
-      ctx.font = "600 " + Math.max(10, Math.round(tok * 0.6)) + "px Inter, sans-serif";
+      ctx.font = "600 " + Math.max(11, Math.round(tok * 0.6)) + "px Inter, sans-serif";
       var wx = seqX0 + 8 * (tok + 3) + 8, wy = seqY;
       for (var w = 0; w < words.length; w++) {
         var ww = ctx.measureText(words[w]).width + 10;
@@ -896,7 +945,7 @@
 
   /* ------------------------------------------------------------------ */
   renderMission(); renderNews(); renderPrinciples(); renderPeople(); renderWork(); renderVenues(); renderPlan();
-  setupNav(); setupReveal();
+  setupNav(); setupReveal(); setupPause();
   hero(); topicScenes(); covers(); joinBg();
   var y = document.getElementById("year"); if (y) y.textContent = new Date().getFullYear();
 })();
